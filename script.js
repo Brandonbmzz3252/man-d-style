@@ -272,22 +272,13 @@ function flash(msg) {
   flash.timeout = setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
-$("confirm-btn").addEventListener("click", async () => {
+$("confirm-btn").addEventListener("click", async (e) => {
   state.name = $("det-name").value.trim();
   state.phone = $("det-phone").value.trim();
   state.notes = $("det-notes").value.trim();
 
   if (!state.name) { flash("Please enter your full name."); return; }
   if (!state.phone || !/^[0-9+\-\s]{7,15}$/.test(state.phone)) { flash("Please enter a valid contact number."); return; }
-
-  // Fresh server check — someone else may have taken the slot since page load.
-  await syncBookings();
-  if (bookedWindow(state.date, state.time, 180)) {
-    flash("Sorry, that time was just booked. Please pick another.");
-    state.time = "";
-    renderTimes();
-    return;
-  }
 
   const svc = SERVICES.find((s) => s.id === state.service);
 
@@ -301,6 +292,22 @@ $("confirm-btn").addEventListener("click", async () => {
     notes: state.notes,
     ts: Date.now()
   };
+
+  // Open WhatsApp NOW, synchronously inside the click — browsers only allow
+  // this in the moment of the tap. The booking save continues below in the
+  // background, so the message is sent no matter what.
+  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes))}`;
+  window.open(url, "_blank");
+  $("wa-open").href = url;
+
+  // Fresh server check — someone else may have taken the slot since page load.
+  await syncBookings();
+  if (bookedWindow(state.date, state.time, 180)) {
+    flash("Sorry, that time was just booked. Please pick another.");
+    state.time = "";
+    renderTimes();
+    return;
+  }
 
   const accepted = await pushBooking(booking);
   if (accepted === false) {
@@ -317,11 +324,6 @@ $("confirm-btn").addEventListener("click", async () => {
   $("sm-service").textContent = `${booking.service}${booking.price ? " (" + booking.price + ")" : ""}`;
   $("sm-name").textContent = booking.name;
   $("sm-phone").textContent = booking.phone;
-
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes))}`;
-  // No auto-window.open here: after async work browsers block it as a popup.
-  // Just arm the WhatsApp button on the confirmation screen — a real click is never blocked.
-  $("wa-open").href = url;
 
   goStep(4);
 });
