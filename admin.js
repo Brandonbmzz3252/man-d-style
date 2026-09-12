@@ -79,6 +79,7 @@ async function refreshStaff() {
   }
   renderStaffClients(res.clients || []);
   renderStaffBookings(res.bookings || []);
+  renderStaffDone(res.done || []);
 }
 
 /* ---- clients & loyalty ---- */
@@ -140,6 +141,28 @@ function renderStaffBookings(bookings) {
       }
     });
   });
+}
+
+/* ---- done / past bookings ---- */
+function renderStaffDone(done) {
+  const wrap = $("staff-done");
+  if (!done.length) {
+    wrap.innerHTML = `<div class="empty">Completed appointments will move here.</div>`;
+    return;
+  }
+  wrap.innerHTML = done.map((b) => `
+    <div class="staff-bk done">
+      <div class="staff-bk-top">
+        <strong>${fmtLong(b.date)} &middot; ${b.time}</strong>
+        <span class="bk-price">${b.price || b.service || ""}</span>
+      </div>
+      <div class="staff-bk-sub">
+        <span>${esc(b.name)}</span>
+        <span>${esc(b.phone)}</span>
+        <span>${esc(b.service)}</span>
+      </div>
+      <div class="staff-bk-note">${esc(b.notes)}</div>
+    </div>`).join("");
 }
 
 function esc(s) {

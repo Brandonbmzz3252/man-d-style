@@ -108,9 +108,21 @@ function adminList(pw) {
 
   var rows = getAllBookingsFull();
   var today = todayStr();
-  var upcoming = rows
-    .filter(function (r) { return r.date >= today; })
-    .sort(function (a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
+  var nowTime = nowTimeStr();
+
+  var upcoming = [];
+  var done = [];
+  rows.forEach(function (r) {
+    if (r.date < today || (r.date === today && r.time <= nowTime)) {
+      done.push(r);
+    } else {
+      upcoming.push(r);
+    }
+  });
+
+  function byTime(a, b) { return (a.date + a.time).localeCompare(b.date + b.time); }
+  upcoming.sort(byTime);
+  done.sort(byTime);
 
   var clients = {};
   rows.forEach(function (r) {
@@ -128,7 +140,7 @@ function adminList(pw) {
     return c;
   }).sort(function (a, b) { return b.count - a.count; });
 
-  return jsonOut({ ok: true, bookings: upcoming, clients: clientList });
+  return jsonOut({ ok: true, bookings: upcoming, done: done, clients: clientList });
 }
 
 function adminDelete(pw, date, time) {
@@ -223,6 +235,12 @@ function todayStr() {
   var d = new Date();
   function pad2(n) { return ("0" + n).slice(-2); }
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+}
+
+function nowTimeStr() {
+  var d = new Date();
+  function pad2(n) { return ("0" + n).slice(-2); }
+  return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
 
 /* ---- sheet helpers ---- */

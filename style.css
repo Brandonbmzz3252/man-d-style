@@ -1309,6 +1309,17 @@ body {
   font-style: italic;
 }
 
+.staff-bk.done {
+  opacity: 0.7;
+  background: transparent;
+  border-style: dashed;
+}
+.staff-bk.done .staff-bk-top strong {
+  text-decoration: line-through;
+  color: var(--taupe-2);
+}
+.staff-bk.done .bk-price { color: var(--taupe-2); }
+
 .bk-del {
   align-self: flex-start;
   background: transparent;

@@ -354,10 +354,10 @@ async function pushBooking(b) {
   }
 }
 
-/* this client's own bookings, fresh from the sheet */
+/* this client's own bookings, fresh from the sheet (null = sheet unreachable) */
 async function myBookings() {
   const url = window.MDS_BACKEND_URL;
-  if (!url) return [];
+  if (!url) return null;
   const phones = [...new Set(getBookings().map((b) => b.phone).filter(Boolean))];
   if (!phones.length) return [];
   try {
@@ -367,8 +367,8 @@ async function myBookings() {
     });
     const data = await res.json();
     if (data && data.ok && Array.isArray(data.bookings)) return data.bookings;
-  } catch (e) {}
-  return [];
+    return null;
+  } catch (e) { return null; }
 }
 
 /* free this client's booking on the sheet (staff panel + slots update instantly) */
@@ -400,11 +400,10 @@ function buildCancelMessage(b) {
 
 async function renderAppointments(view) {
   // Prefer fresh server truth so a staff-side cancellation disappears here too.
-  let server = [];
-  try { server = await myBookings(); } catch (e) {}
-
+  // Only fall back to localStorage when the sheet is unreachable (server === null).
+  const server = await myBookings();
   const local = getBookings();
-  const merged = (server.length ? server : local).filter((b) => {
+  const merged = (server !== null ? server : local).filter((b) => {
     if (view === "past") return b.date < todayISO();
     return b.date >= todayISO();
   });
