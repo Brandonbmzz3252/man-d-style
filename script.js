@@ -207,12 +207,21 @@ async function syncBookings() {
 
 function bookedWindow(dateISO, checkTime, gapMin) {
   const all = getBookings().concat(remoteBookings);
+  if (isWeekday(dateISO)) {
+    // Mon-Fri: any existing booking fills the whole day
+    return all.some((b) => b.date === dateISO);
+  }
   return all.some((b) => {
     if (b.date !== dateISO) return false;
     const t = toMinutes(checkTime);
     const bt = toMinutes(b.time);
     return t >= bt && t < bt + gapMin;
   });
+}
+
+function isWeekday(iso) {
+  const wd = weekday(iso);
+  return wd >= 1 && wd <= 5;
 }
 
 function renderTimes() {
@@ -261,13 +270,22 @@ function flash(msg) {
   flash.timeout = setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
-$("confirm-btn").addEventListener("click", () => {
+$("confirm-btn").addEventListener("click", async () => {
   state.name = $("det-name").value.trim();
   state.phone = $("det-phone").value.trim();
   state.notes = $("det-notes").value.trim();
 
   if (!state.name) { flash("Please enter your full name."); return; }
   if (!state.phone || !/^[0-9+\-\s]{7,15}$/.test(state.phone)) { flash("Please enter a valid contact number."); return; }
+
+  // Fresh server check — someone else may have taken the slot since page load.
+  await syncBookings();
+  if (bookedWindow(state.date, state.time, 180)) {
+    flash("Sorry, that time was just booked. Please pick another.");
+    state.time = "";
+    renderTimes();
+    return;
+  }
 
   const svc = SERVICES.find((s) => s.id === state.service);
 
@@ -282,8 +300,15 @@ $("confirm-btn").addEventListener("click", () => {
     ts: Date.now()
   };
 
+  const accepted = await pushBooking(booking);
+  if (accepted === false) {
+    flash("Sorry, that time was just booked. Please pick another.");
+    state.time = "";
+    renderTimes();
+    return;
+  }
+
   saveBooking(booking);
-  pushBooking(booking);
 
   $("sm-date").textContent = fmtLong(state.date);
   $("sm-time").textContent = state.time;
@@ -311,15 +336,18 @@ function saveBooking(b) {
 
 async function pushBooking(b) {
   const url = window.MDS_BACKEND_URL;
-  if (!url) return;
+  if (!url) return true; // local-only mode: no server to arbitrate
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: "POST",
       body: JSON.stringify(b)
     });
-    syncBookings();
+    const data = await res.json();
+    if (data && data.ok) return true;
+    return false; // server said taken / unavailable
   } catch (e) {
-    /* offline / backend unavailable — booking stays local */
+    // Backend unreachable — accept rather than block the customer's booking.
+    return true;
   }
 }
 
