@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pick your hair-length photos</title>
+<style>
+  :root {
+    --green: #14301F;
+    --deep: #0F2419;
+    --cream: #F5EFE0;
+    --gold: #D4A657;
+    --orange: #E8952E;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    background: var(--cream);
+    color: var(--deep);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--green);
+    color: var(--cream);
+    padding: 28px 20px;
+    text-align: center;
+  }
+  header h1 { font-size: 24px; font-weight: normal; letter-spacing: 1px; }
+  header h1 b { color: var(--gold); }
+  header p { margin-top: 8px; font-size: 13px; opacity: .85; }
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 22px auto 0;
+    max-width: 900px;
+  }
+  .tab {
+    flex: 1;
+    max-width: 200px;
+    padding: 12px 10px;
+    border: 2px solid var(--green);
+    background: transparent;
+    color: var(--green);
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .tab.active { background: var(--green); color: var(--cream); }
+  .tab[data-k="Short"].active { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .tab[data-k="Medium"].active { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .hint {
+    text-align: center;
+    font-size: 13px;
+    margin-top: 14px;
+    padding: 0 16px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 30px 20px 90px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .card {
+    border: 3px solid transparent;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .card img { width: 100%; height: 240px; object-fit: cover; display: block; background: #eee; }
+  .card .meta { padding: 8px 10px 10px; }
+  .card .meta .f { font-size: 12px; color: var(--gold); font-style: italic; }
+  .card .meta .d { font-size: 11px; color: #666; line-height: 1.4; margin-top: 2px; }
+  .card.assigned { border-color: var(--green); box-shadow: 0 4px 14px rgba(20,48,31,.25); }
+  .card.assigned[data-k="Short"] { border-color: var(--gold); }
+  .card.assigned[data-k="Medium"] { border-color: var(--orange); }
+  .card .badge {
+    display: none;
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    text-align: center;
+    color: #fff;
+    background: var(--green);
+  }
+  .card.assigned[data-k="Short"] .badge { display: block; background: var(--gold); }
+  .card.assigned[data-k="Medium"] .badge { display: block; background: var(--orange); }
+  .card.assigned[data-k="Long"] .badge { display: block; background: var(--deep); }
+  .summary {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: var(--deep);
+    color: var(--cream);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 13px;
+  }
+  .summary code {
+    background: rgba(255,255,255,.12);
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-family: Consolas, monospace;
+  }
+  .summary button {
+    background: var(--gold);
+    border: 0;
+    color: var(--deep);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MAN-D-<b>STYLE</b> &mdash; choose your photos</h1>
+  <p>Pick one for <b>Short</b>, one for <b>Medium</b>, one for <b>Long</b> &mdash; pick the best-looking shot of each length (person straight facing away, hair fully visible, not cut off). Then copy the code at the bottom and paste it in the chat.</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-k="Short">Short</button>
+  <button class="tab" data-k="Medium">Medium</button>
+  <button class="tab" data-k="Long">Long</button>
+</div>
+<div class="hint" id="hint">Now assigning: <b>Short</b></div>
+
+<div class="grid" id="grid"></div>
+
+<div class="summary">
+  <span>Your picks:</span>
+  <code id="out">(choose 3)</code>
+  <button id="copy">Copy code</button>
+</div>
+
+<script>
+  const PHOTOS = [
+    { f: "c01.jpg", d: "Long dark hair seen from behind, standing" },
+    { f: "c02.jpg", d: "Long hair blowing in the wind, from behind" },
+    { f: "c03.jpg", d: "Long hair, woman looking out at horizon" },
+    { f: "c04.jpg", d: "Back of a woman's head, standing on the beach" },
+    { f: "c05.jpg", d: "Back of a woman's head with long hair" },
+    { f: "c07.jpg", d: "Woman standing on terrace, back view" },
+    { f: "c08.jpg", d: "Woman from behind, long hair, pink wall" },
+    { f: "c09.jpg", d: "Woman from behind, long hair, black jacket" },
+    { f: "c10.jpg", d: "Woman from behind, very long hair" },
+    { f: "c11.jpg", d: "Woman standing under cloudy sky, from behind" },
+    { f: "c12.jpg", d: "Woman standing on green grass field, from behind" },
+    { f: "c13.jpg", d: "Blonde hair, walking away from camera" },
+    { f: "c14.jpg", d: "Long brown hair, woman facing away" },
+    { f: "c15.jpg", d: "Long brown hair, woman facing away" },
+    { f: "c16.jpg", d: "Woman in white tank top, back of head" },
+    { f: "c17.jpg", d: "Close-up back of a head, long hair" },
+    { f: "c18.jpg", d: "Back of a woman's head, walking in street" },
+    { f: "c19.jpg", d: "Woman's back and dark hair, mid-back length" },
+    { f: "c20.jpg", d: "Person from behind showing mid red hair" },
+    { f: "c21.jpg", d: "Back of head with hair in a pony tail" },
+    { f: "c22.jpg", d: "Woman in gray sweater near white wall, from behind" },
+    { f: "c23.jpg", d: "Woman in black shirt, brown hair, from behind" },
+    { f: "c24.jpg", d: "Woman in white shirt under blue sky, from behind" },
+    { f: "c25.jpg", d: "Woman from behind, tied-up hair styling" },
+    { f: "c26.jpg", d: "Woman in yellow knit sweater, from behind" },
+    { f: "c27.jpg", d: "Woman from behind, mid-length style" },
+    { f: "c28.jpg", d: "Woman in beige top, from behind" },
+    { f: "c29.jpg", d: "Back of a man's head (very short hair)" },
+    { f: "c30.jpg", d: "Back of a man's head, short hair" },
+    { f: "c31.jpg", d: "Back of a head, short/shaped haircut" },
+    { f: "c32.jpg", d: "Back of a woman in a black dress" },
+    { f: "c33.jpg", d: "Back view of a woman, short hair" },
+    { f: "c34.jpg", d: "Man viewed from behind, short style" },
+    { f: "c35.jpg", d: "Short/shaped cut, looking away side-back" },
+    { f: "c36.jpg", d: "Back of a woman's head with short hair" }
+  ];
+
+  const state = { Short: null, Medium: null, Long: null };
+  let cur = "Short";
+
+  const gridEl = document.getElementById("grid");
+  const outEl = document.getElementById("out");
+  const hintEl = document.getElementById("hint");
+
+  PHOTOS.forEach((p) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.k = "";
+    card.innerHTML = `
+      <img src="img/candidates/${p.f}" alt="${p.d}">
+      <div class="meta">
+        <div class="f">${p.f}</div>
+        <div class="d">${p.d}</div>
+        <div class="badge"></div>
+      </div>`;
+    card.addEventListener("click", () => {
+      if (card.dataset.k === cur) {
+        state[cur] = null;
+        card.dataset.k = "";
+      } else {
+        if (state[cur]) {
+          const prev = document.querySelector(`.card[data-f="${state[cur]}"]`);
+          if (prev) prev.dataset.k = "";
+        }
+        state[cur] = p.f;
+        card.dataset.k = cur;
+      }
+      render();
+    });
+    card.dataset.f = p.f;
+    gridEl.appendChild(card);
+  });
+
+  document.querySelectorAll(".tab").forEach((t) => {
+    t.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+      t.classList.add("active");
+      cur = t.dataset.k;
+      hintEl.innerHTML = "Now assigning: <b>" + cur + "</b>";
+    });
+  });
+
+  function code() {
+    return "SHORT=" + (state.Short || "none") + " | MEDIUM=" + (state.Medium || "none") + " | LONG=" + (state.Long || "none");
+  }
+
+  function render() {
+    outEl.textContent = code();
+    const badgeFills = { Short: "Short", Medium: "Medium", Long: "Long" };
+    document.querySelectorAll(".card").forEach((c) => {
+      const badge = c.querySelector(".badge");
+      badge.textContent = badgeFills[c.dataset.k] || "";
+    });
+  }
+
+  document.getElementById("copy").addEventListener("click", () => {
+    navigator.clipboard.writeText(code()).then(() => {
+      document.getElementById("copy").textContent = "Copied!";
+      setTimeout(() => { document.getElementById("copy").textContent = "Copy code"; }, 1500);
+    });
+  });
+
+  render();
+</script>
+</body>
+</html>

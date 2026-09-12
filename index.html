@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#14301F">
+  <meta name="description" content="MAN-D-STYLE Hair Salon - Book your appointment online. Hair • Style • You.">
+  <title>MAN-D-STYLE | Look Good &middot; Feel Good &middot; Be You</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <defs>
+      <linearGradient id="hairg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#F5E6C8"/>
+        <stop offset="1" stop-color="#D4A657"/>
+      </linearGradient>
+      <linearGradient id="goldg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#F5E6C8"/>
+        <stop offset="1" stop-color="#D4A657"/>
+      </linearGradient>
+    </defs>
+    <symbol id="logo" viewBox="0 0 100 100">
+      <g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="42" cy="33" r="15"/>
+        <path d="M55 25 C72 29 78 43 74 57 C70 72 56 79 44 77"/>
+        <path d="M56 24 C67 20 73 27 68 36 C63 43 53 45 45 42"/>
+        <path d="M40 48 L46 61 L34 65"/>
+      </g>
+    </symbol>
+    <symbol id="heart" viewBox="0 0 24 24">
+      <path d="M12 21 C4 14 2 9 4 6 C6 3 9 3 12 6 C15 3 18 3 20 6 C22 9 20 14 12 21 Z"/>
+    </symbol>
+    <symbol id="home" viewBox="0 0 24 24">
+      <path d="M4 11 L12 4 L20 11 V20 H14 V15 H10 V20 H4 Z"/>
+    </symbol>
+    <symbol id="calendar" viewBox="0 0 24 24">
+      <rect x="4" y="5" width="16" height="16" rx="3"/>
+      <path d="M8 3 V7 M16 3 V7 M4 10 H20"/>
+    </symbol>
+    <symbol id="clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 7 V12 L15.5 14"/>
+    </symbol>
+    <symbol id="scissors" viewBox="0 0 24 24">
+      <circle cx="6" cy="6" r="2.5"/>
+      <circle cx="6" cy="18" r="2.5"/>
+      <path d="M8.5 8 L20 18 M8.5 16 L20 6 M14 10 L20 13"/>
+    </symbol>
+    <symbol id="gift" viewBox="0 0 24 24">
+      <rect x="4" y="10" width="16" height="10" rx="1.5"/>
+      <path d="M4 10 H20 M12 10 V20 M12 10 C12 6 9 6 8 8 M12 10 C12 7 15 6 16 8"/>
+    </symbol>
+    <symbol id="phone" viewBox="0 0 24 24">
+      <path d="M6 3 H9 L11 8 L8.5 10 C10 13 13 15.5 16 14 L17 11.5 L21 13 V16 C21 17.5 19.5 19 17.5 18.5 C11 17 7 13 5.5 6.5 C5 4.5 6 3 6 3 Z"/>
+    </symbol>
+    <symbol id="pin" viewBox="0 0 24 24">
+      <path d="M12 21 C7 15 5 11 5 8 A7 7 0 0 1 19 8 C19 11 17 15 12 21 Z"/>
+      <circle cx="12" cy="8" r="2.5"/>
+    </symbol>
+    <symbol id="person" viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="4"/>
+      <path d="M4 20 C5 15 8 13 12 13 C16 13 19 15 20 20"/>
+    </symbol>
+    <symbol id="chat" viewBox="0 0 24 24">
+      <path d="M4 5 H20 V16 H9 L5 20 V16 H4 Z"/>
+    </symbol>
+    <symbol id="check" viewBox="0 0 24 24">
+      <path d="M4 12.5 L9.5 18 L20 6"/>
+    </symbol>
+    <symbol id="star" viewBox="0 0 24 24">
+      <path d="M12 3 L14.6 8.6 L20.5 9.3 L16 13.5 L17.2 19.5 L12 16.7 L6.8 19.5 L8 13.5 L3.5 9.3 L9.4 8.6 Z"/>
+    </symbol>
+  </svg>
+
+  <header class="topbar">
+    <div class="tb-wrap">
+      <a href="#top" class="tb-brand">
+        <img src="img/logo.png" class="logo-sm" alt="MAN-D-STYLE logo">
+        <span class="brand-serif">MAN-D-STYLE</span>
+      </a>
+      <nav class="tb-nav">
+        <a href="#loyalty">Loyalty Card</a>
+        <a href="#contact">Contact Us</a>
+        <a href="#booking" class="btn tb-btn">Book Now</a>
+      </nav>
+      <button class="burger" id="burger" aria-label="Menu">
+        <svg class="ic"><path d="M4 7 H20 M4 12 H20 M4 17 H20"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="drawer" id="drawer">
+    <a href="#top">Home</a>
+    <a href="#loyalty">Loyalty Card</a>
+    <a href="#appointments">My Appointments</a>
+    <a href="#contact">Contact Us</a>
+    <a href="#booking" class="btn tb-btn">Book Now</a>
+  </div>
+  <div class="drawer-back" id="drawer-back"></div>
+
+  <main id="top">
+
+    <section class="hero">
+
+      <div class="hero-in">
+        <img src="img/logo.png" class="brand-mark" alt="MAN-D-STYLE logo">
+        <h1 class="wordmark">MAN-D-STYLE</h1>
+        <div class="tagline-script">Hair &bull; Style &bull; You</div>
+        <p class="sub-tag">LOOK GOOD &nbsp;&bull;&nbsp; FEEL GOOD &nbsp;&bull;&nbsp; BE YOU</p>
+        <a href="#booking" class="btn cta">Book Now</a>
+        <div class="feature-row">
+          <div class="feature"><span class="icon-circle"><svg class="ic big"><use href="#home"/></svg></span><span>Home Service</span></div>
+          <div class="feature"><span class="icon-circle"><svg class="ic big"><use href="#heart"/></svg></span><span>Professional Hair Care</span></div>
+          <div class="feature"><span class="icon-circle"><svg class="ic big"><use href="#star"/></svg></span><span>Your Hair Our Passion</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="home">
+      <div class="content">
+        <div class="home-brand">
+          <p class="lead">Welcome to</p>
+          <h2>MAN-D-STYLE</h2>
+          <p class="home-sub">Book your appointment quickly and easily.</p>
+        </div>
+        <div class="menu-list">
+          <a href="#booking" class="menu-row">
+            <span class="icon-badge"><svg class="ic"><use href="#calendar"/></svg></span>
+            <span class="label">Book Appointment</span>
+            <svg class="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          </a>
+          <a href="#appointments" class="menu-row">
+            <span class="icon-badge"><svg class="ic"><use href="#clock"/></svg></span>
+            <span class="label">My Appointments</span>
+            <svg class="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          </a>
+          <a href="#loyalty" class="menu-row">
+            <span class="icon-badge"><svg class="ic"><use href="#gift"/></svg></span>
+            <span class="label">Loyalty Card</span>
+            <svg class="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          </a>
+          <a href="#contact" class="menu-row">
+            <span class="icon-badge"><svg class="ic"><use href="#phone"/></svg></span>
+            <span class="label">Contact Us</span>
+            <svg class="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="booking" class="inner">
+      <div class="panel">
+        <div class="step active" id="step-service">
+          <header class="app-header">
+            <a class="back-btn" href="#top"><svg class="ic"><path d="M15 18l-6-6 6-6"/></svg></a>
+            <h2>Select Service</h2>
+          </header>
+          <div class="body">
+            <div class="section-label">Select your service</div>
+            <div id="service-list-wiz" class="service-list"></div>
+            <p class="smallprint">Match your hair length below &mdash; prices depend on length and style. Ask us on WhatsApp for the full menu.</p>
+            <button class="btn primary btn-full" id="next-1">Next</button>
+          </div>
+        </div>
+
+        <div class="step" id="step-datetime">
+          <header class="app-header">
+            <button class="back-btn" id="back-2"><svg class="ic"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <h2>Select Date &amp; Time</h2>
+          </header>
+          <div class="body">
+            <div class="calendar-card">
+              <div class="cal-nav">
+                <button class="arrow" id="cal-prev">&lsaquo;</button>
+                <span id="cal-label"></span>
+                <button class="arrow" id="cal-next">&rsaquo;</button>
+              </div>
+              <div class="cal-dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+              <div class="cal-grid" id="cal-grid"></div>
+            </div>
+            <div class="section-label">Available Times</div>
+            <div class="time-grid" id="time-grid"></div>
+            <button class="btn primary btn-full" id="next-2">Next</button>
+          </div>
+        </div>
+
+        <div class="step" id="step-details">
+          <header class="app-header">
+            <button class="back-btn" id="back-3"><svg class="ic"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <h2>Your Details</h2>
+          </header>
+          <div class="body">
+            <div class="form">
+              <label class="field">
+                <span class="fld-lb"><svg class="ic sm"><use href="#person"/></svg> Full Name *</span>
+                <input type="text" id="det-name" placeholder="e.g. Mandy Petersen" autocomplete="name">
+              </label>
+              <label class="field">
+                <span class="fld-lb"><svg class="ic sm"><use href="#phone"/></svg> Contact Number *</span>
+                <input type="tel" id="det-phone" placeholder="e.g. 074 725 7566" autocomplete="tel">
+              </label>
+              <label class="field">
+                <span class="fld-lb"><svg class="ic sm"><use href="#chat"/></svg> Additional Notes</span>
+                <textarea id="det-notes" placeholder="Any special requests? (eg. preferred stylist, allergies, etc.)"></textarea>
+              </label>
+              <button class="btn primary btn-full" id="confirm-btn">Confirm Booking</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="step" id="step-confirm">
+          <div class="confirmed">
+            <div class="check-badge"><svg class="ic xl"><use href="#check"/></svg></div>
+            <h2>Booking Confirmed!</h2>
+            <p class="sub">Your appointment has been successfully booked.</p>
+            <div class="summary-card">
+              <div class="summary-row">
+                <div class="icon-badge-sm"><svg class="ic sm"><use href="#calendar"/></svg></div>
+                <div><div class="s-label">Date</div><div class="s-value" id="sm-date"></div></div>
+              </div>
+              <div class="summary-row">
+                <div class="icon-badge-sm"><svg class="ic sm"><use href="#clock"/></svg></div>
+                <div><div class="s-label">Time</div><div class="s-value" id="sm-time"></div></div>
+              </div>
+              <div class="summary-row">
+                <div class="icon-badge-sm"><svg class="ic sm"><use href="#scissors"/></svg></div>
+                <div><div class="s-label">Service</div><div class="s-value" id="sm-service"></div></div>
+              </div>
+              <div class="summary-row">
+                <div class="icon-badge-sm"><svg class="ic sm"><use href="#person"/></svg></div>
+                <div><div class="s-label">Name</div><div class="s-value" id="sm-name"></div></div>
+              </div>
+              <div class="summary-row">
+                <div class="icon-badge-sm"><svg class="ic sm"><use href="#phone"/></svg></div>
+                <div><div class="s-label">Contact</div><div class="s-value" id="sm-phone"></div></div>
+              </div>
+            </div>
+            <div class="thankyou-script">Thank you for choosing MAN-D-STYLE! <svg class="ic sm"><use href="#heart"/></svg></div>
+            <a href="#top" class="btn outline btn-block">Back to Home</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="appointments" class="inner">
+      <div class="panel">
+        <header class="app-header">
+          <a class="back-btn" href="#top"><svg class="ic"><path d="M15 18l-6-6 6-6"/></svg></a>
+          <h2>My Appointments</h2>
+        </header>
+        <div class="body">
+          <div class="tab-toggle">
+            <button class="t active" id="tg-up">Upcoming</button>
+            <button class="t" id="tg-past">Past</button>
+          </div>
+          <div id="appt-list" class="appt-list"></div>
+          <a href="#booking" class="btn primary btn-full">Book New Appointment</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="loyalty" class="inner">
+      <div class="panel">
+        <header class="app-header">
+          <a class="back-btn" href="#top"><svg class="ic"><path d="M15 18l-6-6 6-6"/></svg></a>
+          <h2>Loyalty Card</h2>
+        </header>
+        <div class="body">
+          <div class="loyalty-panel">
+            <h3 class="loyalty-heading">4 Washes <span>+</span> 5th <em>FREE</em></h3>
+            <div class="heart-sm"><svg class="ic"><use href="#heart"/></svg></div>
+            <div class="stamps-row">
+              <span class="stamp">1</span>
+              <span class="stamp">2</span>
+              <span class="stamp">3</span>
+              <span class="stamp">4</span>
+              <span class="stamp free">FREE</span>
+            </div>
+            <p class="loyalty-body-text">Book your four consecutive washes and get the fifth one free!</p>
+            <div class="divider-orn"><span class="line"></span><span class="gem">&#9670;</span><span class="line"></span></div>
+            <div class="thankyou-script small">Thank you for your continued support!</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="inner">
+      <div class="panel">
+        <header class="app-header">
+          <a class="back-btn" href="#top"><svg class="ic"><path d="M15 18l-6-6 6-6"/></svg></a>
+          <h2>Contact Us</h2>
+        </header>
+        <div class="body">
+          <div class="contact-heading">Get in Touch</div>
+          <div class="contact-list">
+            <a class="contact-row" href="https://wa.me/27747257566" target="_blank" rel="noopener">
+              <span class="icon-badge"><svg class="ic"><use href="#phone"/></svg></span>
+              <span><div class="c-primary">074 725 7566</div><div class="c-sub">Call or WhatsApp</div></span>
+            </a>
+            <a class="contact-row" href="#booking">
+              <span class="icon-badge"><svg class="ic"><use href="#pin"/></svg></span>
+              <span><div class="c-primary">Home Service</div><div class="c-sub">We come to you!</div></span>
+            </a>
+          </div>
+          <div class="contact-footer">
+            <div class="wordmark-sm">MAN-D-STYLE</div>
+            <div class="tag-script">Hair &bull; Style &bull; You</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="showcase">
+      <div class="showcase-content">
+        <img src="img/logo.png" class="brand-mark lg" alt="MAN-D-STYLE logo">
+        <div class="wordmark-sm">MAN-D-STYLE</div>
+        <div class="tag-script">Hair &bull; Style &bull; You</div>
+        <div class="showcase-quote">"Beautiful hair is always<br>a good idea"</div>
+        <svg class="ic sm"><use href="#heart"/></svg>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottomnav" id="bottomnav">
+    <a href="#top" class="bn-item"><svg class="ic md"><use href="#home"/></svg><span>Home</span></a>
+    <a href="#booking" class="bn-item"><svg class="ic md"><use href="#calendar"/></svg><span>Book</span></a>
+    <a href="#appointments" class="bn-item active"><svg class="ic md"><use href="#clock"/></svg><span>Appointments</span></a>
+    <a href="#contact" class="bn-item"><svg class="ic md"><use href="#gift"/></svg><span>More</span></a>
+  </nav>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; <span id="year"></span> MAN-D-STYLE. Hair &bull; Style &bull; You. <a href="https://wa.me/27747257566" target="_blank" rel="noopener">WhatsApp us</a></p>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
