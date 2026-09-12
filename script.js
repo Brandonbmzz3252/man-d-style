@@ -317,6 +317,7 @@ $("confirm-btn").addEventListener("click", async () => {
   $("sm-phone").textContent = booking.phone;
 
   const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes))}`;
+  $("wa-open").href = url;
   window.open(url, "_blank");
 
   goStep(4);
