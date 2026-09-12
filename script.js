@@ -319,8 +319,9 @@ $("confirm-btn").addEventListener("click", async () => {
   $("sm-phone").textContent = booking.phone;
 
   const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes))}`;
+  // No auto-window.open here: after async work browsers block it as a popup.
+  // Just arm the WhatsApp button on the confirmation screen — a real click is never blocked.
   $("wa-open").href = url;
-  window.open(url, "_blank");
 
   goStep(4);
 });
