@@ -64,6 +64,8 @@ function doPost(e) {
   if (b.action === "list") return adminList(b.pw);
   if (b.action === "delete") return adminDelete(b.pw, b.date, b.time);
   if (b.action === "changePw") return adminChangePw(b.pw, b.oldPw, b.newPw);
+  if (b.action === "cancel") return publicCancel(b);
+  if (b.action === "myBookings") return publicMyBookings(b);
 
   // ---- public booking flow ----
   if (!b.date || !b.time) return jsonOut({ ok: false, error: "missing_date_or_time" });
@@ -138,7 +140,7 @@ function adminDelete(pw, date, time) {
   var removed = 0;
   for (var i = data.length - 1; i >= 1; i--) {
     var row = data[i];
-    if (String(row[3]) === String(date) && String(row[4]) === String(time)) {
+    if (fmtDate(row[3]) === String(date) && fmtTime(row[4]) === String(time)) {
       sheet.deleteRow(i + 1);
       removed++;
     }
@@ -162,9 +164,38 @@ function adminChangePw(pw, oldPw, newPw) {
   return jsonOut({ ok: true });
 }
 
+/* ---- public: client cancels own booking ---- */
+function publicCancel(b) {
+  if (!b.date || !b.time || !b.phone) return jsonOut({ ok: false, error: "missing" });
+  var phoneKey = String(b.phone).replace(/[^0-9]/g, "");
+  var sheet = getSheet();
+  var data = sheet.getDataRange().getValues();
+  var removed = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    var row = data[i];
+    var rowPhone = String(row[6] || "").replace(/[^0-9]/g, "");
+    if (fmtDate(row[3]) === String(b.date) && fmtTime(row[4]) === String(b.time) && phoneKey && rowPhone === phoneKey) {
+      sheet.deleteRow(i + 1);
+      removed++;
+    }
+  }
+  return jsonOut({ ok: true, removed: removed });
+}
+
+/* ---- public: this client's own bookings (matches by phone) ---- */
+function publicMyBookings(b) {
+  if (!b.phone) return jsonOut({ ok: true, bookings: [] });
+  var phoneKey = String(b.phone).replace(/[^0-9]/g, "");
+  var out = getAllBookingsFull().filter(function (r) {
+    return String(r.phone || "").replace(/[^0-9]/g, "") === phoneKey;
+  });
+  return jsonOut({ ok: true, bookings: out });
+}
+
 /* ---- availability rules ---- */
 //  Mon-Fri (weekday): only ONE booking per day (time slots are too close).
-//  Saturday: bookings must be at least 3 hours apart from each other.
+//  Saturday: each client takes 3 hours, so nothing may START within
+//            3 hours before OR after an existing booking (no overlaps).
 function isSlotTaken(date, time) {
   if (isWeekday(date)) {
     return getAllBookings().some(function (e) { return e.date === date; });
@@ -173,7 +204,7 @@ function isSlotTaken(date, time) {
   return getAllBookings().some(function (e) {
     if (e.date !== date) return false;
     var bt = toMin(e.time);
-    return t >= bt && t < bt + 180; // next 3 hours blocked
+    return t >= bt - 180 && t < bt + 180; // 3h before..3h after fully blocked
   });
 }
 
@@ -202,8 +233,11 @@ function getAllBookings() {
   var bookings = [];
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    if (!row[3] || !row[4]) continue;
-    bookings.push({ date: String(row[3]), time: String(row[4]), service: String(row[1] || "") });
+    if (!row[3] && !row[4]) continue;
+    var d = fmtDate(row[3]);
+    var t = fmtTime(row[4]);
+    if (!d || !t) continue;
+    bookings.push({ date: d, time: t, service: String(row[1] || "") });
   }
   return bookings;
 }
@@ -214,10 +248,12 @@ function getAllBookingsFull() {
   var rows = [];
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
-    if (!r[3] || !r[4]) continue;
+    var d = fmtDate(r[3]);
+    var t = fmtTime(r[4]);
+    if (!d || !t) continue;
     rows.push({
-      date: String(r[3]),
-      time: String(r[4]),
+      date: d,
+      time: t,
       service: String(r[1] || ""),
       price: String(r[2] || ""),
       name: String(r[5] || ""),
@@ -226,6 +262,25 @@ function getAllBookingsFull() {
     });
   }
   return rows;
+}
+
+// Google Sheets auto-converts appended strings like "2026-09-17" into real
+// date cells and "16:00" into time cells. Normalize them back to plain text
+// so every read is the exact same string the client sent.
+function fmtDate(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  var s = String(v || "").trim();
+  return s;
+}
+
+function fmtTime(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), "HH:mm");
+  }
+  var s = String(v || "").trim();
+  return s;
 }
 
 function getSheet() {

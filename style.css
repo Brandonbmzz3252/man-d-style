@@ -913,6 +913,13 @@ body {
 
 .view-btn:hover { background: var(--green); color: #fff; }
 
+.cancel-appt {
+  border-color: var(--leaf-red);
+  color: var(--leaf-red);
+}
+
+.cancel-appt:hover { background: var(--leaf-red); color: #fff; border-color: var(--leaf-red); }
+
 .empty {
   text-align: center;
   color: var(--taupe-2);

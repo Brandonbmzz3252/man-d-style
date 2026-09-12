@@ -211,11 +211,13 @@ function bookedWindow(dateISO, checkTime, gapMin) {
     // Mon-Fri: any existing booking fills the whole day
     return all.some((b) => b.date === dateISO);
   }
+  // Saturday: each client takes 3 hours, so nothing may START within
+  // 3 hours before OR after an existing booking (no overlaps).
+  const t = toMinutes(checkTime);
   return all.some((b) => {
     if (b.date !== dateISO) return false;
-    const t = toMinutes(checkTime);
     const bt = toMinutes(b.time);
-    return t >= bt && t < bt + gapMin;
+    return t >= bt - gapMin && t < bt + gapMin;
   });
 }
 
@@ -352,27 +354,73 @@ async function pushBooking(b) {
   }
 }
 
-function viewURL(b) {
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(b.name, b.phone, b.service, b.price, b.date, b.time, b.notes))}`;
+/* this client's own bookings, fresh from the sheet */
+async function myBookings() {
+  const url = window.MDS_BACKEND_URL;
+  if (!url) return [];
+  const phones = [...new Set(getBookings().map((b) => b.phone).filter(Boolean))];
+  if (!phones.length) return [];
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify({ action: "myBookings", phone: phones[0] })
+    });
+    const data = await res.json();
+    if (data && data.ok && Array.isArray(data.bookings)) return data.bookings;
+  } catch (e) {}
+  return [];
 }
 
-function renderAppointments(view) {
-  const list = getBookings().filter((b) => {
+/* free this client's booking on the sheet (staff panel + slots update instantly) */
+async function freeSlotOnSheet(b) {
+  const url = window.MDS_BACKEND_URL;
+  if (!url) { return; }
+  try {
+    await fetch(url, {
+      method: "POST",
+      body: JSON.stringify({ action: "cancel", date: b.date, time: b.time, phone: b.phone })
+    });
+  } catch (e) {}
+}
+
+function buildCancelMessage(b) {
+  const lines = [
+    "*BOOKING CANCELLED*",
+    "",
+    `Name: ${b.name}`,
+    `Contact: ${b.phone}`,
+    `Service: ${b.service}${b.price ? " (" + b.price + ")" : ""}`,
+    `Date: ${fmtLong(b.date)}`,
+    `Time: ${b.time}`
+  ];
+  if (b.notes) lines.push(`Notes: ${b.notes}`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+async function renderAppointments(view) {
+  // Prefer fresh server truth so a staff-side cancellation disappears here too.
+  let server = [];
+  try { server = await myBookings(); } catch (e) {}
+
+  const local = getBookings();
+  const merged = (server.length ? server : local).filter((b) => {
     if (view === "past") return b.date < todayISO();
     return b.date >= todayISO();
   });
 
   const wrap = $("appt-list");
 
-  if (!list.length) {
+  if (!merged.length) {
     wrap.innerHTML = `<div class="empty">No ${view === "past" ? "past" : "upcoming"} appointments yet.<br>Your bookings will show up here.</div>`;
     return;
   }
 
-  const sorted = list.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const sorted = merged.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
 
   wrap.innerHTML = sorted.map((b) => {
     const parts = b.date.split("-");
+    const wa = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildCancelMessage(b))}`;
     return `
       <div class="appt-card">
         <div class="appt-date">
@@ -384,9 +432,29 @@ function renderAppointments(view) {
           <div class="time">${b.time}</div>
           <div class="svc">${b.service}${b.price ? " (" + b.price + ")" : ""}</div>
         </div>
-        <a class="view-btn" href="${viewURL(b)}" target="_blank" rel="noopener">View</a>
+        <a class="view-btn cancel-appt" href="${wa}" target="_blank" rel="noopener">Cancel</a>
       </div>`;
   }).join("");
+
+  wrap.querySelectorAll(".cancel-appt").forEach((a) => {
+    a.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (!confirm("Cancel this appointment?\nA cancellation notification will be sent, and the slot will reopen.")) return;
+      const ix = [...wrap.querySelectorAll(".cancel-appt")].indexOf(a);
+      const b = sorted[ix];
+      window.open(a.href, "_blank"); // opens WhatsApp now, inside the click (never blocked)
+      local.forEach((lb) => {
+        if (lb.date === b.date && lb.time === b.time && lb.name === b.name) {
+          const all = getBookings().filter((x) => !(x.date === lb.date && x.time === lb.time && x.name === lb.name && x.phone === lb.phone));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+        }
+      });
+      await freeSlotOnSheet(b);
+      await renderAppointments(apptView);
+      syncBookings();
+      flash("Booking cancelled — slot reopened.");
+    });
+  });
 }
 
 let apptView = "upcoming";
