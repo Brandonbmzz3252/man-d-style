@@ -87,6 +87,7 @@ function doPost(e) {
       b.phone || "",     // G phone
       b.notes || ""      // H notes
     ]);
+    try { sendBookingEmail(b); } catch (err) {}
     return jsonOut({ ok: true });
   } catch (err) {
     return jsonOut({ ok: false, error: "lock_timeout" });
@@ -241,6 +242,46 @@ function nowTimeStr() {
   var d = new Date();
   function pad2(n) { return ("0" + n).slice(-2); }
   return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+}
+
+/* ---- new-booking email alert (owner) ---- */
+var OWNER_EMAIL = "petersenmandy1986@gmail.com";
+var SALON_NAME = "MAN-D-STYLE";
+
+function pad2(n) { return ("0" + n).slice(-2); }
+
+function fmtLongDate(iso) {
+  var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var p = String(iso).split("-").map(Number);
+  return pad2(p[2]) + " " + MONTHS[(p[1] || 1) - 1] + " " + p[0];
+}
+
+function sendBookingEmail(b) {
+  var date = fmtLongDate(b.date);
+  var greeting = "Hi " + (b.name || "there");
+  var confirmation = greeting + ",\n\n" +
+    "Thank you for booking with " + SALON_NAME + ".\n\n" +
+    "Your booking is confirmed for " + date + " at " + b.time + ".\n\n" +
+    "We appreciate your support.";
+
+  var waLink = "https://wa.me/" + String(b.phone || "").replace(/[^0-9]/g, "");
+  var body =
+    "NEW BOOKING\n==========\n" +
+    "Name:    " + b.name + "\n" +
+    "Phone:   " + b.phone + "\n" +
+    "Service: " + b.service + (b.price ? " (" + b.price + ")" : "") + "\n" +
+    "Date:    " + date + "\n" +
+    "Time:    " + b.time + "\n" +
+    "Notes:   " + (b.notes || "-") + "\n\n" +
+    "==========\nCOPY & PASTE THIS TO THE CLIENT ON WHATSAPP:\n==========\n\n" +
+    confirmation + "\n\n" +
+    "Reply in this chat button: " + waLink;
+
+  MailApp.sendEmail({
+    to: OWNER_EMAIL,
+    subject: "New booking: " + (b.name || "") + " - " + date + " at " + b.time,
+    body: body
+  });
 }
 
 /* ---- sheet helpers ---- */

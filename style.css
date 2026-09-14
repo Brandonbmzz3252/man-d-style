@@ -448,6 +448,45 @@ body {
   gap: 9px;
 }
 
+.kids-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 11px 14px;
+  background: var(--cream-2);
+  border: 1.5px solid var(--border-cream-2);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green-mid);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+}
+.kids-toggle:hover { border-color: var(--gold-1); }
+.kids-toggle.active {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+.kids-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--gold-1);
+  color: var(--green);
+}
+.kids-note {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gold-1);
+}
+
 .service-card {
   background: #fff;
   border: 1.5px solid var(--border-cream-2);

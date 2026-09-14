@@ -2,9 +2,9 @@ const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
 
 const SERVICES = [
-  { id: "short", name: "Short", price: "R160" },
-  { id: "medium", name: "Medium", price: "R180" },
-  { id: "long", name: "Long", price: "R200" },
+  { id: "short", name: "Short", price: "R160", kidsPrice: "R120" },
+  { id: "medium", name: "Medium", price: "R180", kidsPrice: "R140" },
+  { id: "long", name: "Long", price: "R200", kidsPrice: "R160" },
   { id: "wbf", name: "W/B/ Flat iron", price: "" }
 ];
 
@@ -33,6 +33,7 @@ const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct
 const state = {
   service: null,
   price: "",
+  kids: false,
   date: "",
   time: "",
   name: "",
@@ -65,6 +66,7 @@ const HAIR_PHOTO = {
 
 function serviceCardHTML(svc, mode) {
   const isWbf = svc.id === "wbf";
+  const showPrice = (state.kids && svc.kidsPrice) ? svc.kidsPrice : svc.price;
 
   if (isWbf) {
     return `
@@ -78,16 +80,21 @@ function serviceCardHTML(svc, mode) {
     ? '<span class="radio"></span>'
     : `<a href="#booking" class="book-link" data-book="${svc.id}">Book this &rarr;</a>`;
 
+  const priceLabel = state.kids && svc.kidsPrice
+    ? `${svc.kidsPrice} <span class="kids-note">(Kids)</span>`
+    : showPrice;
+
   return `
     <div class="service-card" data-id="${svc.id}"${mode === "wiz" ? ' data-wiz="1"' : ""}>
       <span class="svc-thumb"><img src="${HAIR_PHOTO[svc.id] || ""}" alt="${svc.name}" loading="lazy"></span>
-      <span class="svc-info"><div class="svc-name">${svc.name}</div><div class="svc-price">${svc.price}</div></span>
+      <span class="svc-info"><div class="svc-name">${svc.name}</div><div class="svc-price">${priceLabel}</div></span>
       ${right}
     </div>`;
 }
 
 function renderServices() {
   $("service-list-wiz").innerHTML = SERVICES.map((s) => serviceCardHTML(s, "wiz")).join("");
+  $("kids-toggle").classList.toggle("active", state.kids);
   refreshWizardSelection();
 }
 
@@ -101,9 +108,19 @@ function selectService(id) {
   const svc = SERVICES.find((s) => s.id === id);
   if (!svc) return;
   state.service = svc.id;
-  state.price = svc.price;
+  state.price = (state.kids && svc.kidsPrice) ? svc.kidsPrice : svc.price;
   refreshWizardSelection();
 }
+
+$("kids-toggle").addEventListener("click", () => {
+  state.kids = !state.kids;
+  state.price = "";
+  if (state.service) {
+    const svc = SERVICES.find((s) => s.id === state.service);
+    state.price = (state.kids && svc.kidsPrice) ? svc.kidsPrice : svc.price;
+  }
+  renderServices();
+});
 
 document.addEventListener("click", (e) => {
   const wizCard = e.target.closest("#service-list-wiz [data-wiz]");
