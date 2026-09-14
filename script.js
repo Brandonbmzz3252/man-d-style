@@ -113,14 +113,19 @@ function selectService(id) {
 }
 
 $("kids-toggle").addEventListener("click", () => {
-  state.kids = !state.kids;
+  state.kids = $("kids-input").checked;
+  applyKidsState();
+});
+
+function applyKidsState() {
+  $("kids-input").checked = state.kids;
   state.price = "";
   if (state.service) {
     const svc = SERVICES.find((s) => s.id === state.service);
     state.price = (state.kids && svc.kidsPrice) ? svc.kidsPrice : svc.price;
   }
   renderServices();
-});
+}
 
 document.addEventListener("click", (e) => {
   const wizCard = e.target.closest("#service-list-wiz [data-wiz]");

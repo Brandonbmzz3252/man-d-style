@@ -466,6 +466,7 @@ body {
   cursor: pointer;
   text-align: left;
   transition: all 0.18s ease;
+  user-select: none;
 }
 .kids-toggle:hover { border-color: var(--gold-1); }
 .kids-toggle.active {
@@ -473,6 +474,32 @@ body {
   color: #fff;
   border-color: var(--green);
 }
+.kids-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.kids-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.kids-box {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border: 2px solid var(--gold-1);
+  border-radius: 6px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.kids-box .ic { width: 13px; height: 13px; color: #fff; opacity: 0; transition: opacity 0.15s ease; }
+.kids-toggle.active .kids-box { background: var(--gold-1); }
+.kids-toggle.active .kids-box .ic { opacity: 1; }
+.kids-label-text { font-size: 13px; font-weight: 600; }
 .kids-pill {
   font-size: 11px;
   font-weight: 700;
