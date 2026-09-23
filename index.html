@@ -9,7 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=12">
+  <meta http-equiv="Cache-Control" content="no-cache">
 </head>
 <body>
 
@@ -191,6 +192,12 @@
               <span class="kids-pill">R120 - R160</span>
             </label>
             <div id="service-list-wiz" class="service-list"></div>
+            <div class="section-label add-ons-label">Additional Services</div>
+            <div id="service-list-addons" class="addons-list"></div>
+            <div id="step-total-row" class="step-total" style="display:none">
+              <span class="step-total-label">Total</span>
+              <span class="step-total-value" id="step-total"></span>
+            </div>
             <p class="smallprint">Match your hair length below &mdash; prices depend on length and style. Ask us on WhatsApp for the full menu.</p>
             <button class="btn primary btn-full" id="next-1">Next</button>
           </div>
@@ -258,6 +265,14 @@
               <div class="summary-row">
                 <div class="icon-badge-sm"><svg class="ic sm"><use href="#scissors"/></svg></div>
                 <div><div class="s-label">Service</div><div class="s-value" id="sm-service"></div></div>
+              </div>
+              <div class="summary-row" id="sm-addons-row" style="display:none">
+                <div class="icon-badge-sm"><svg class="ic sm"><use href="#gift"/></svg></div>
+                <div><div class="s-label">Additional</div><div class="s-value" id="sm-addons"></div></div>
+              </div>
+              <div class="summary-row" id="sm-total-row" style="display:none">
+                <div class="icon-badge-sm"><svg class="ic sm"><use href="#star"/></svg></div>
+                <div><div class="s-label">Total</div><div class="s-value" id="sm-total"></div></div>
               </div>
               <div class="summary-row">
                 <div class="icon-badge-sm"><svg class="ic sm"><use href="#person"/></svg></div>
@@ -422,11 +437,12 @@
   <footer class="site-footer">
     <div class="container">
       <p>&copy; <span id="year"></span> MAN-D-STYLE. Hair &bull; Style &bull; You. <a href="https://wa.me/27747257566" target="_blank" rel="noopener">WhatsApp us</a></p>
+      <p class="ver-sm" id="app-version"></p>
     </div>
   </footer>
 
-  <script src="config.js?v=10"></script>
-  <script src="script.js?v=10"></script>
-  <script src="admin.js?v=10"></script>
+  <script src="config.js?v=12"></script>
+  <script src="script.js?v=12"></script>
+  <script src="admin.js?v=12"></script>
 </body>
 </html>

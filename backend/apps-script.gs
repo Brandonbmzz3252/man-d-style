@@ -51,11 +51,43 @@ function verifyRole(pw) {
 }
 
 function doGet() {
-  return jsonOut({ ok: true, bookings: getAllBookings() });
+  migratePhones();
+  return jsonOut({ ok: true, bookings: getAllBookings(), availability: listAvailabilityData() });
+}
+
+function canonPhone(p) {
+  var d = String(p || "").replace(/[^0-9]/g, "");
+  if (!d) return d;
+  if (d.charAt(0) === "0") d = "27" + d.slice(1);
+  else if (d.charAt(0) !== "2" && d.length <= 10) d = "27" + d;
+  return d;
+}
+
+// One-time + ongoing guard: rewrites saved phone numbers into one consistent
+// 27XXXXXXXXX format so lookups, admin and WhatsApp always agree.
+function migratePhones() {
+  try {
+    var sh = getSheet();
+    var data = sh.getDataRange().getValues();
+    var changed = false;
+    for (var i = 1; i < data.length; i++) {
+      var raw = data[i][6];
+      if (!raw) continue;
+      var c = canonPhone(raw);
+      if (c !== String(raw || "")) {
+        data[i][6] = c;
+        changed = true;
+      }
+    }
+    if (changed && data.length > 1) {
+      sh.getRange(2, 1, data.length - 1, sh.getLastColumn()).setValues(data.slice(1));
+    }
+  } catch (err) {}
 }
 
 function doPost(e) {
   var b = {};
+  migratePhones();
   try { b = JSON.parse(e.postData.contents); } catch (err) {
     return jsonOut({ ok: false, error: "bad_json" });
   }
@@ -64,6 +96,14 @@ function doPost(e) {
   if (b.action === "list") return adminList(b.pw);
   if (b.action === "delete") return adminDelete(b.pw, b.date, b.time);
   if (b.action === "changePw") return adminChangePw(b.pw, b.oldPw, b.newPw);
+  if (b.action === "listSpecials") return listSpecials();
+  if (b.action === "addSpecial") return addSpecial(b);
+  if (b.action === "deleteSpecial") return deleteSpecial(b);
+  if (b.action === "updateSpecial") return updateSpecial(b);
+  if (b.action === "setAvailability") return setAvailability(b);
+  if (b.action === "clearAvailability") return clearAvailability(b);
+  if (b.action === "registerPush") return registerPush(b);
+  if (b.action === "sendTestPush") return sendTestPush(b);
   if (b.action === "cancel") return publicCancel(b);
   if (b.action === "myBookings") return publicMyBookings(b);
 
@@ -84,10 +124,11 @@ function doPost(e) {
       b.date,            // D date (YYYY-MM-DD)
       b.time,            // E time (HH:MM)
       b.name || "",      // F name
-      b.phone || "",     // G phone
+      canonPhone(b.phone), // G phone (canonical 27XXXXXXXXX)
       b.notes || ""      // H notes
     ]);
     try { sendBookingEmail(b); } catch (err) {}
+    try { sendBookingPush(b); } catch (err) {}
     return jsonOut({ ok: true });
   } catch (err) {
     return jsonOut({ ok: false, error: "lock_timeout" });
@@ -127,8 +168,8 @@ function adminList(pw) {
 
   var clients = {};
   rows.forEach(function (r) {
-    var key = (r.phone || "").replace(/[^0-9]/g, "") || (r.name || "?");
-    if (!clients[key]) clients[key] = { name: r.name || "", phone: r.phone || "", count: 0 };
+    var key = canonPhone(r.phone) || (r.name || "?");
+    if (!clients[key]) clients[key] = { name: r.name || "", phone: key, count: 0 };
     clients[key].count++;
     if (r.name) clients[key].name = r.name;
   });
@@ -177,16 +218,276 @@ function adminChangePw(pw, oldPw, newPw) {
   return jsonOut({ ok: true });
 }
 
+/* ---- specials (admin manages, clients read) ---- */
+function getSpecialsSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName("Specials");
+  if (sh) return sh;
+  var created = ss.insertSheet("Specials");
+  created.appendRow(["id", "title", "body", "price", "validUntil", "active", "created"]);
+  return created;
+}
+
+function listSpecials() {
+  var sh = getSpecialsSheet();
+  var data = sh.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    if (!r[0] && !r[1]) continue;
+    out.push({
+      id: String(r[0] || ""),
+      title: String(r[1] || ""),
+      body: String(r[2] || ""),
+      price: String(r[3] || ""),
+      validUntil: String(r[4] || ""),
+      active: r[5] === true || String(r[5]).toLowerCase() === "true" || r[5] === 1 || r[5] === "1"
+    });
+  }
+  return jsonOut({ ok: true, specials: out });
+}
+
+function addSpecial(b) {
+  if (!verifyRole(b.pw)) return jsonOut({ ok: false, error: "unauthorized" });
+  var title = String(b.title || "").trim();
+  if (!title) return jsonOut({ ok: false, error: "missing_title" });
+  var active = b.active === false ? false : true;
+  var special = {
+    id: Utilities.getUuid().slice(0, 8),
+    title: title,
+    body: String(b.body || ""),
+    price: String(b.price || ""),
+    validUntil: String(b.validUntil || ""),
+    active: active
+  };
+  getSpecialsSheet().appendRow([
+    special.id, special.title, special.body, special.price, special.validUntil, active, new Date()
+  ]);
+  return jsonOut({ ok: true, special: special });
+}
+
+function deleteSpecial(b) {
+  if (!verifyRole(b.pw)) return jsonOut({ ok: false, error: "unauthorized" });
+  if (!b.id) return jsonOut({ ok: false, error: "missing_id" });
+  var sh = getSpecialsSheet();
+  var data = sh.getDataRange().getValues();
+  var removed = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === String(b.id)) {
+      sh.deleteRow(i + 1);
+      removed++;
+    }
+  }
+  return jsonOut({ ok: true, removed: removed });
+}
+
+function updateSpecial(b) {
+  if (!verifyRole(b.pw)) return jsonOut({ ok: false, error: "unauthorized" });
+  if (!b.id) return jsonOut({ ok: false, error: "missing_id" });
+  var title = String(b.title || "").trim();
+  if (!title) return jsonOut({ ok: false, error: "missing_title" });
+  var sh = getSpecialsSheet();
+  var data = sh.getDataRange().getValues();
+  var active = true;
+  var found = false;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(b.id)) {
+      data[i][1] = title;
+      data[i][2] = String(b.body || "");
+      data[i][3] = String(b.price || "");
+      data[i][4] = String(b.validUntil || "");
+      active = data[i][5] === true || String(data[i][5]).toLowerCase() === "true" || data[i][5] === 1 || data[i][5] === "1";
+      found = true;
+      break;
+    }
+  }
+  if (!found) return jsonOut({ ok: false, error: "not_found" });
+  var lastCol = Math.max(sh.getLastColumn(), 7);
+  var rows = data.slice(1).map(function (r) {
+    var row = [];
+    for (var c = 0; c < lastCol; c++) row.push(c < r.length ? r[c] : "");
+    return row;
+  });
+  if (rows.length > 0) sh.getRange(2, 1, rows.length, lastCol).setValues(rows);
+  return jsonOut({
+    ok: true,
+    special: {
+      id: String(b.id),
+      title: title,
+      body: String(b.body || ""),
+      price: String(b.price || ""),
+      validUntil: String(b.validUntil || ""),
+      active: active
+    }
+  });
+}
+
+/* ---- availability overrides (admin chooses exact slots for a date) ----
+   A date with no row keeps the default rules (see isSlotTaken). */
+function getAvailabilitySheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName("Availability");
+  if (sh) return sh;
+  var created = ss.insertSheet("Availability");
+  created.appendRow(["date", "times", "updated"]);
+  return created;
+}
+
+function listAvailabilityData() {
+  var sh = getAvailabilitySheet();
+  var data = sh.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    var d = fmtDate(r[0]);
+    if (!d) continue;
+    var times = String(r[1] || "").split(",").map(function (t) {
+      return String(t).trim();
+    }).filter(function (t) { return t; });
+    times.sort();
+    out.push({ date: d, times: times });
+  }
+  return out;
+}
+
+function getOverride(date) {
+  var list = listAvailabilityData();
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].date === String(date)) return list[i].times;
+  }
+  return null;
+}
+
+function setAvailability(b) {
+  if (!verifyRole(b.pw)) return jsonOut({ ok: false, error: "unauthorized" });
+  var date = String(b.date || "").trim();
+  if (!date) return jsonOut({ ok: false, error: "missing_date" });
+  var times = Array.isArray(b.times)
+    ? b.times.map(function (t) { return String(t).trim(); }).filter(function (t) { return t; })
+    : [];
+  times.sort();
+  var sh = getAvailabilitySheet();
+  var data = sh.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (fmtDate(data[i][0]) === date) sh.deleteRow(i + 1);
+  }
+  sh.appendRow([date, times.join(","), new Date()]);
+  return jsonOut({ ok: true, date: date, times: times });
+}
+
+function clearAvailability(b) {
+  if (!verifyRole(b.pw)) return jsonOut({ ok: false, error: "unauthorized" });
+  var date = String(b.date || "").trim();
+  if (!date) return jsonOut({ ok: false, error: "missing_date" });
+  var sh = getAvailabilitySheet();
+  var data = sh.getDataRange().getValues();
+  var removed = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (fmtDate(data[i][0]) === date) {
+      sh.deleteRow(i + 1);
+      removed++;
+    }
+  }
+  return jsonOut({ ok: true, removed: removed });
+}
+
+/* ---- push notifications (admin devices get a buzz/ring on new bookings) ---- */
+var PUSH_TOKENS_KEY = "MDS_PUSH_TOKENS";
+
+function registerPush(b) {
+  if (!verifyRole(b.pw)) return jsonOut({ ok: false, error: "unauthorized" });
+  var token = String(b.token || "").trim();
+  if (!token) return jsonOut({ ok: false, error: "missing_token" });
+  var props = PropertiesService.getScriptProperties();
+  var list = [];
+  try { list = JSON.parse(props.getProperty(PUSH_TOKENS_KEY) || "[]"); } catch (e) { list = []; }
+  if (list.indexOf(token) === -1) {
+    list.push(token);
+    props.setProperty(PUSH_TOKENS_KEY, JSON.stringify(list));
+  }
+  return jsonOut({ ok: true, count: list.length });
+}
+
+function sendBookingPush(b) {
+  var tokens = [];
+  try {
+    tokens = JSON.parse(PropertiesService.getScriptProperties().getProperty(PUSH_TOKENS_KEY) || "[]");
+  } catch (e) { tokens = []; }
+  if (!tokens.length) return;
+  var messages = tokens.map(function (t) {
+    return {
+      to: t,
+      sound: "default",
+      title: "New booking - " + (b.name || "Client"),
+      body: (b.service || "Appointment") + (b.price ? " (" + b.price + ")" : "") +
+        " - " + fmtLongDate(b.date) + " at " + b.time,
+      priority: "high",
+      channelId: "bookings",
+      data: { type: "booking" }
+    };
+  });
+  try {
+    var resp = UrlFetchApp.fetch("https://exp.host/--/api/v2/push/send", {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(messages),
+      muteHttpExceptions: true
+    });
+    PropertiesService.getScriptProperties().setProperty("MDS_LAST_PUSH",
+      JSON.stringify({ at: new Date().toISOString(), code: resp.getResponseCode(), body: resp.getContentText() }));
+  } catch (err) {
+    PropertiesService.getScriptProperties().setProperty("MDS_LAST_PUSH",
+      JSON.stringify({ at: new Date().toISOString(), error: String(err) }));
+  }
+}
+
+function sendTestPush(b) {
+  if (!verifyRole(b.pw)) return jsonOut({ ok: false, error: "unauthorized" });
+  var tokens = [];
+  try {
+    tokens = JSON.parse(PropertiesService.getScriptProperties().getProperty(PUSH_TOKENS_KEY) || "[]");
+  } catch (e) { tokens = []; }
+  if (!tokens.length) return jsonOut({ ok: false, error: "no_tokens_registered" });
+  var messages = tokens.map(function (t) {
+    return {
+      to: t,
+      sound: "default",
+      title: "MAN-D-STYLE test",
+      body: "Push delivery is working.",
+      priority: "high",
+      channelId: "bookings",
+      data: { type: "test" }
+    };
+  });
+  try {
+    var resp = UrlFetchApp.fetch("https://exp.host/--/api/v2/push/send", {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(messages),
+      muteHttpExceptions: true
+    });
+    return jsonOut({ ok: true, http: resp.getResponseCode(), body: resp.getContentText() });
+  } catch (err) {
+    return jsonOut({ ok: false, error: "fetch_failed", detail: String(err) });
+  }
+}
+
+// Run this once in the Apps Script editor to grant UrlFetchApp (push) access.
+function authCheck() {
+  var r = UrlFetchApp.fetch("https://exp.host/--/api/v2/push/send", { muteHttpExceptions: true });
+  return "http " + r.getResponseCode();
+}
+
 /* ---- public: client cancels own booking ---- */
 function publicCancel(b) {
   if (!b.date || !b.time || !b.phone) return jsonOut({ ok: false, error: "missing" });
-  var phoneKey = String(b.phone).replace(/[^0-9]/g, "");
+  var phoneKey = canonPhone(b.phone);
   var sheet = getSheet();
   var data = sheet.getDataRange().getValues();
   var removed = 0;
   for (var i = data.length - 1; i >= 1; i--) {
     var row = data[i];
-    var rowPhone = String(row[6] || "").replace(/[^0-9]/g, "");
+    var rowPhone = canonPhone(row[6]);
     if (fmtDate(row[3]) === String(b.date) && fmtTime(row[4]) === String(b.time) && phoneKey && rowPhone === phoneKey) {
       sheet.deleteRow(i + 1);
       removed++;
@@ -198,9 +499,9 @@ function publicCancel(b) {
 /* ---- public: this client's own bookings (matches by phone) ---- */
 function publicMyBookings(b) {
   if (!b.phone) return jsonOut({ ok: true, bookings: [] });
-  var phoneKey = String(b.phone).replace(/[^0-9]/g, "");
+  var phoneKey = canonPhone(b.phone);
   var out = getAllBookingsFull().filter(function (r) {
-    return String(r.phone || "").replace(/[^0-9]/g, "") === phoneKey;
+    return canonPhone(r.phone) === phoneKey;
   });
   return jsonOut({ ok: true, bookings: out });
 }
@@ -210,11 +511,16 @@ function publicMyBookings(b) {
 //  Saturday: each client takes 3 hours, so nothing may START within
 //            3 hours before OR after an existing booking (no overlaps).
 function isSlotTaken(date, time) {
+  var bookings = getAllBookings();
+  // A custom schedule means each chosen slot stands on its own.
+  if (getOverride(date) !== null) {
+    return bookings.some(function (e) { return e.date === date && e.time === time; });
+  }
   if (isWeekday(date)) {
-    return getAllBookings().some(function (e) { return e.date === date; });
+    return bookings.some(function (e) { return e.date === date; });
   }
   var t = toMin(time);
-  return getAllBookings().some(function (e) {
+  return bookings.some(function (e) {
     if (e.date !== date) return false;
     var bt = toMin(e.time);
     return t >= bt - 180 && t < bt + 180; // 3h before..3h after fully blocked
@@ -264,7 +570,7 @@ function sendBookingEmail(b) {
     "Your booking is confirmed for " + date + " at " + b.time + ".\n\n" +
     "We appreciate your support.";
 
-  var waLink = "https://wa.me/" + String(b.phone || "").replace(/[^0-9]/g, "");
+  var waLink = "https://wa.me/" + canonPhone(b.phone);
   var body =
     "NEW BOOKING\n==========\n" +
     "Name:    " + b.name + "\n" +

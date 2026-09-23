@@ -1,5 +1,6 @@
 const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
+const APP_VERSION = "1.3";
 
 const SERVICES = [
   { id: "short", name: "Short", price: "R160", kidsPrice: "R120" },
@@ -9,6 +10,14 @@ const SERVICES = [
 ];
 
 const TIMES = []; // placeholder (unused; times now depend on weekday)
+
+const ADDONS = [
+  { id: "trim",  name: "Trim",                  dur: "",       price: 35  },
+  { id: "ns30",  name: "Neck & Shoulder",       dur: "30 min", price: 180 },
+  { id: "ns40",  name: "Neck & Shoulder",       dur: "40 min", price: 200 },
+  { id: "hns30", name: "Head, Neck & Shoulder", dur: "30 min", price: 200 },
+  { id: "hns40", name: "Head, Neck & Shoulder", dur: "40 min", price: 220 }
+];
 
 function weekday(iso) {
   const parts = iso.split("-").map(Number);
@@ -34,6 +43,7 @@ const state = {
   service: null,
   price: "",
   kids: false,
+  addons: [],
   date: "",
   time: "",
   name: "",
@@ -104,12 +114,70 @@ function refreshWizardSelection() {
   });
 }
 
+function addonCardHTML(a) {
+  const selected = state.addons.includes(a.id);
+  return `
+    <div class="addon-card${selected ? " selected" : ""}" data-addon="${a.id}">
+      <span class="chk"><svg class="ic"><use href="#check"/></svg></span>
+      <span class="addon-info">
+        <span class="addon-name">${a.name}</span>${a.dur ? `<span class="addon-dur">${a.dur}</span>` : ""}
+      </span>
+      <span class="addon-price">R${a.price}</span>
+    </div>`;
+}
+
+function renderAddons() {
+  $("service-list-addons").innerHTML = ADDONS.map(addonCardHTML).join("");
+  updateLiveTotal();
+}
+
+function updateLiveTotal() {
+  const t = priceNumber(state.price) + addonTotal();
+  const row = $("step-total-row");
+  if (t > 0) {
+    $("step-total").textContent = `R${t}`;
+    row.style.display = "";
+  } else {
+    row.style.display = "none";
+  }
+}
+
+function toggleAddon(id) {
+  const ix = state.addons.indexOf(id);
+  if (ix === -1) state.addons.push(id);
+  else state.addons.splice(ix, 1);
+  renderAddons();
+}
+
+function addonTotal() {
+  return state.addons.reduce((sum, id) => {
+    const a = ADDONS.find((x) => x.id === id);
+    return sum + (a ? a.price : 0);
+  }, 0);
+}
+
+function priceNumber(s) {
+  const n = parseInt(String(s || "").replace(/[^0-9]/g, ""), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+document.addEventListener("click", (e) => {
+  const addonCard = e.target.closest("#service-list-addons [data-addon]");
+  if (addonCard) { toggleAddon(addonCard.dataset.addon); }
+});
+
 function selectService(id) {
-  const svc = SERVICES.find((s) => s.id === id);
-  if (!svc) return;
-  state.service = svc.id;
-  state.price = (state.kids && svc.kidsPrice) ? svc.kidsPrice : svc.price;
+  if (state.service === id) {
+    state.service = null;
+    state.price = "";
+  } else {
+    const svc = SERVICES.find((s) => s.id === id);
+    if (!svc) return;
+    state.service = svc.id;
+    state.price = (state.kids && svc.kidsPrice) ? svc.kidsPrice : svc.price;
+  }
   refreshWizardSelection();
+  updateLiveTotal();
 }
 
 $("kids-toggle").addEventListener("click", () => {
@@ -125,6 +193,7 @@ function applyKidsState() {
     state.price = (state.kids && svc.kidsPrice) ? svc.kidsPrice : svc.price;
   }
   renderServices();
+  updateLiveTotal();
 }
 
 document.addEventListener("click", (e) => {
@@ -147,7 +216,7 @@ function goStep(n) {
 }
 
 $("next-1").addEventListener("click", () => {
-  if (!state.service) { flash("Please select a service first."); return; }
+  if (!state.service && !state.addons.length) { flash("Please select a service first."); return; }
   goStep(2);
 });
 
@@ -266,16 +335,21 @@ $("time-grid").addEventListener("click", (e) => {
 });
 
 /* ---- confirm booking ---- */
-function buildMessage(name, phone, service, price, date, time, notes) {
+function buildMessage(name, phone, service, price, date, time, notes, addons, total) {
   const lines = [
     "*NEW HAIR BOOKING*",
     "",
     `Name: ${name}`,
     `Contact: ${phone}`,
-    `Service: ${service}${price ? " (" + price + ")" : ""}`,
-    `Date: ${fmtLong(date)}`,
-    `Time: ${time}`
+    `Service: ${service}${price ? " (" + price + ")" : ""}`
   ];
+  if (addons && addons.length) {
+    lines.push("Additional:");
+    addons.forEach((a) => lines.push(`  - ${a.name}${a.dur ? " (" + a.dur + ")" : ""}: R${a.price}`));
+  }
+  if (total) lines.push(`Total: ${total}`);
+  lines.push(`Date: ${fmtLong(date)}`);
+  lines.push(`Time: ${time}`);
   if (notes) lines.push(`Notes: ${notes}`);
   lines.push("", "Please confirm my appointment. Thank you!");
   return lines.join("\n");
@@ -303,22 +377,27 @@ $("confirm-btn").addEventListener("click", async (e) => {
   if (!state.phone || !/^[0-9+\-\s]{7,15}$/.test(state.phone)) { flash("Please enter a valid contact number."); return; }
 
   const svc = SERVICES.find((s) => s.id === state.service);
+  const addons = state.addons.map((id) => ADDONS.find((a) => a.id === id)).filter(Boolean);
+  const mainPrice = state.price;
+  const total = priceNumber(mainPrice) + addonTotal();
+  const totalLabel = total > 0 ? `R${total}` : "";
+  const addonsLabel = addons.map((a) => `${a.name}${a.dur ? " (" + a.dur + ")" : ""} R${a.price}`).join(", ");
 
   const booking = {
-    service: svc ? svc.name : "",
-    price: svc ? svc.price : "",
+    service: svc ? svc.name : (addons.length ? "Additional services" : ""),
+    price: totalLabel,
     date: state.date,
     time: state.time,
     name: state.name,
     phone: state.phone,
-    notes: state.notes,
+    notes: addons.length ? [state.notes, "Additional: " + addonsLabel].filter(Boolean).join("\n") : state.notes,
     ts: Date.now()
   };
 
   // Open WhatsApp NOW, synchronously inside the click — browsers only allow
   // this in the moment of the tap. The booking save continues below in the
   // background, so the message is sent no matter what.
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes))}`;
+  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes, addons, totalLabel))}`;
   window.open(url, "_blank");
   $("wa-open").href = url;
 
@@ -347,7 +426,31 @@ $("confirm-btn").addEventListener("click", async (e) => {
   $("sm-name").textContent = booking.name;
   $("sm-phone").textContent = booking.phone;
 
+  const addonsRow = $("sm-addons-row");
+  const totalRow = $("sm-total-row");
+  if (addons.length) {
+    $("sm-addons").innerHTML = addons.map((a) => `${a.name}${a.dur ? " (" + a.dur + ")" : ""} - R${a.price}`).join("<br>");
+    addonsRow.style.display = "";
+  } else {
+    addonsRow.style.display = "none";
+  }
+  if (totalLabel) {
+    $("sm-total").textContent = totalLabel;
+    totalRow.style.display = "";
+  } else {
+    totalRow.style.display = "none";
+  }
+
   goStep(4);
+
+  // Fresh start for the next booking.
+  state.service = null;
+  state.addons = [];
+  state.date = "";
+  state.time = "";
+  state.kids = false;
+  applyKidsState();
+  renderAddons();
 });
 
 /* ---- appointments ---- */
@@ -522,10 +625,40 @@ document.querySelectorAll(".bn-item").forEach((item) => {
   });
 });
 
+/* ---- auto-update: checks version.json; reloads when a new version is deployed ---- */
+const MDS_VER_KEY = "mds_seen_version";
+const MDS_VER_INTERVAL = 5 * 60 * 1000;
+
+async function mdsCheckUpdate() {
+  try {
+    const u = new URL("version.json", location.href);
+    u.searchParams.set("t", String(Date.now()));
+    const res = await fetch(u, { cache: "no-store" });
+    const data = await res.json();
+    const deployed = Number(data.seq) || 0;
+    const seen = Number(localStorage.getItem(MDS_VER_KEY)) || 0;
+    if (deployed <= 0) return;
+    if (!seen) { localStorage.setItem(MDS_VER_KEY, String(deployed)); return; }
+    if (deployed > seen) {
+      localStorage.setItem(MDS_VER_KEY, String(deployed));
+      flash("New version available - updating\u2026");
+      setTimeout(() => location.reload(), 1500);
+    }
+  } catch (e) { /* offline or host unreachable - ignore, retry later */ }
+}
+
 /* ---- init ---- */
+mdsCheckUpdate();
+setInterval(mdsCheckUpdate, MDS_VER_INTERVAL);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) mdsCheckUpdate();
+});
+
 renderServices();
+renderAddons();
 renderTimes();
 renderCalendar();
 renderAppointments("upcoming");
 syncBookings();
 $("year").textContent = new Date().getFullYear();
+$("app-version").textContent = `MAN-D-STYLE v${APP_VERSION}`;

@@ -1,0 +1,7 @@
+# Used by Netlify and Cloudflare Pages (ignored by GitHub Pages).
+# Stops the HTML shell and version file from being cached so updates arrive sooner.
+index.html
+  Cache-Control: no-cache
+
+version.json
+  Cache-Control: no-cache, no-store, must-revalidate
