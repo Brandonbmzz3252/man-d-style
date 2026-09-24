@@ -555,13 +555,12 @@ $("confirm-btn").addEventListener("click", async (e) => {
 
     goStep(4);
 
-    // Booking is saved — now go straight to WhatsApp in the same tab. Same-tab
-    // navigation deep-links into the app; new-tab (window.open) renders the
-    // wa.me "Go to WhatsApp / Open WhatsApp / Download" interstitial in most
-    // mobile browsers, which clients don't want.
+    // Booking is saved — now go straight into WhatsApp. On phones, launch the
+    // app via a native deep-link (Android intent / iOS whatsapp://) so no
+    // wa.me "Go to WhatsApp / Open WhatsApp / Download" page ever appears.
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes, addons, totalLabel))}`;
     $("wa-open").href = url;
-    window.location.href = url;
+    smartWhatsAppOpen(url);
   } catch (err) {
     flash("Something went wrong sending the booking. Please try again.");
   }
@@ -694,7 +693,7 @@ async function renderAppointments(view) {
       if (!confirm("Cancel this appointment?\nA cancellation notification will be sent, and the slot will reopen.")) return;
       const ix = [...wrap.querySelectorAll(".cancel-appt")].indexOf(a);
       const b = sorted[ix];
-      window.location.href = a.href; // straight to WhatsApp, same tab, no interstitial
+      smartWhatsAppOpen(a.href); // straight into WhatsApp — no interstitial
       local.forEach((lb) => {
         if (lb.date === b.date && lb.time === b.time && lb.name === b.name) {
           const all = getBookings().filter((x) => !(x.date === lb.date && x.time === lb.time && x.name === lb.name && x.phone === lb.phone));
@@ -740,6 +739,24 @@ drawer.addEventListener("click", (e) => {
 function closeDrawer() {
   drawer.classList.remove("open");
   drawerBack.classList.remove("open");
+}
+
+/* ---- WhatsApp deep-links ---- 
+   Launch WhatsApp directly instead of showing the wa.me interstitial page.
+   - Android: intent:// scheme opens the app straight away, falls back to the
+     browser if WhatsApp isn't installed.
+   - iOS: whatsapp:// scheme jumps straight into the app.
+   - Desktop: wa.me in the same tab (WhatsApp Web / QR). */
+function smartWhatsAppOpen(url) {
+  const ua = navigator.userAgent || "";
+  if (/Android/i.test(ua)) {
+    window.location.href = url.replace("https://wa.me/", "intent://wa.me/") + "#Intent;scheme=https;package=com.whatsapp;end";
+  } else if (/iPhone|iPad|iPod/i.test(ua)) {
+    const m = url.match(/[?&]text=([^&]*)/);
+    window.location.href = `whatsapp://send?phone=${WHATSAPP_NUMBER}&text=${m ? m[1] : ""}`;
+  } else {
+    window.location.href = url;
+  }
 }
 
 /* ---- bottom nav active state ---- */
