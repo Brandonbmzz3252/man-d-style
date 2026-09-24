@@ -738,6 +738,32 @@ document.querySelectorAll(".bn-item").forEach((item) => {
   });
 });
 
+/* ---- in-page navigation ---- 
+   Native anchor jumps (#booking, bottom tabs, drawer) silently fail in many
+   in-app/WebView browsers, so ALL same-page links are scrolled to manually. */
+function scrollToSection(id, el) {
+  try {
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.pageYOffset, behavior: "smooth" });
+  } catch (e) {
+    window.scrollTo(0, el.getBoundingClientRect().top + window.pageYOffset);
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  const id = a.getAttribute("href").slice(1);
+  if (!id) return;
+  const target = document.getElementById(id);
+  if (!target) return;
+  e.preventDefault();
+  scrollToSection(id, target);
+  if (a.classList.contains("bn-item")) {
+    document.querySelectorAll(".bn-item").forEach((x) => x.classList.remove("active"));
+    a.classList.add("active");
+  }
+});
+
 /* ---- auto-update: checks version.json; reloads when a new version is deployed ---- */
 const MDS_VER_KEY = "mds_seen_version";
 const MDS_VER_INTERVAL = 5 * 60 * 1000;
