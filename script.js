@@ -261,7 +261,7 @@ function goStep(n) {
 }
 
 $("next-1").addEventListener("click", () => {
-  if (!state.service && !state.addons.length) { flash("Please select a service first."); return; }
+  if (!state.service && !state.addons.length) { flash("Please select a service or an additional service."); return; }
   goStep(2);
 });
 
@@ -439,54 +439,70 @@ $("confirm-btn").addEventListener("click", async (e) => {
     ts: Date.now()
   };
 
-  // Open WhatsApp NOW, synchronously inside the click — browsers only allow
-  // this in the moment of the tap. The booking save continues below in the
-  // background, so the message is sent no matter what.
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes, addons, totalLabel))}`;
-  window.open(url, "_blank");
-  $("wa-open").href = url;
+  const btn = $("confirm-btn");
+  btn.disabled = true;
+  btn.textContent = "Booking…";
 
-  // Fresh server check — someone else may have taken the slot since page load.
-  await syncBookings();
-  if (bookedWindow(state.date, state.time, 180)) {
-    flash("Sorry, that time was just booked. Please pick another.");
-    state.time = "";
-    renderTimes();
-    return;
+  // Complete the booking FIRST, then send the WhatsApp message — never the
+  // other way round (a lost WhatsApp tab must not orphan the booking).
+  try {
+    // Fresh server check — someone else may have taken the slot since page load.
+    await syncBookings();
+    if (bookedWindow(state.date, state.time, 180)) {
+      flash("Sorry, that time was just booked. Please pick another.");
+      state.time = "";
+      renderTimes();
+      btn.disabled = false;
+      btn.textContent = "Confirm Booking";
+      return;
+    }
+
+    const accepted = await pushBooking(booking);
+    if (accepted === false) {
+      flash("Sorry, that time was just booked. Please pick another.");
+      state.time = "";
+      renderTimes();
+      btn.disabled = false;
+      btn.textContent = "Confirm Booking";
+      return;
+    }
+
+    saveBooking(booking);
+
+    $("sm-date").textContent = fmtLong(state.date);
+    $("sm-time").textContent = state.time;
+    $("sm-service").textContent = `${booking.service}${booking.price ? " (" + booking.price + ")" : ""}`;
+    $("sm-name").textContent = booking.name;
+    $("sm-phone").textContent = booking.phone;
+
+    const addonsRow = $("sm-addons-row");
+    const totalRow = $("sm-total-row");
+    if (addons.length) {
+      $("sm-addons").innerHTML = addons.map((a) => `${a.name}${a.dur ? " (" + a.dur + ")" : ""} - R${a.price}`).join("<br>");
+      addonsRow.style.display = "";
+    } else {
+      addonsRow.style.display = "none";
+    }
+    if (totalLabel) {
+      $("sm-total").textContent = totalLabel;
+      totalRow.style.display = "";
+    } else {
+      totalRow.style.display = "none";
+    }
+
+    goStep(4);
+
+    // Booking is saved — now push the WhatsApp message. If the browser
+    // blocks the popup, fall back to navigating straight to WhatsApp.
+    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes, addons, totalLabel))}`;
+    $("wa-open").href = url;
+    const wa = window.open(url, "_blank");
+    if (!wa) window.location.href = url;
+  } catch (err) {
+    flash("Something went wrong sending the booking. Please try again.");
   }
-
-  const accepted = await pushBooking(booking);
-  if (accepted === false) {
-    flash("Sorry, that time was just booked. Please pick another.");
-    state.time = "";
-    renderTimes();
-    return;
-  }
-
-  saveBooking(booking);
-
-  $("sm-date").textContent = fmtLong(state.date);
-  $("sm-time").textContent = state.time;
-  $("sm-service").textContent = `${booking.service}${booking.price ? " (" + booking.price + ")" : ""}`;
-  $("sm-name").textContent = booking.name;
-  $("sm-phone").textContent = booking.phone;
-
-  const addonsRow = $("sm-addons-row");
-  const totalRow = $("sm-total-row");
-  if (addons.length) {
-    $("sm-addons").innerHTML = addons.map((a) => `${a.name}${a.dur ? " (" + a.dur + ")" : ""} - R${a.price}`).join("<br>");
-    addonsRow.style.display = "";
-  } else {
-    addonsRow.style.display = "none";
-  }
-  if (totalLabel) {
-    $("sm-total").textContent = totalLabel;
-    totalRow.style.display = "";
-  } else {
-    totalRow.style.display = "none";
-  }
-
-  goStep(4);
+  btn.disabled = false;
+  btn.textContent = "Confirm Booking";
 
   // Fresh start for the next booking.
   state.service = null;
