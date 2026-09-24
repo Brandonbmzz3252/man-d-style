@@ -658,6 +658,14 @@ body {
 .add-ons-label { margin-top: 20px; }
 .addons-list { display: flex; flex-direction: column; gap: 9px; }
 
+.addon-group {
+  font-family: "Dancing Script", cursive;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--green-mid);
+  padding: 14px 2px 2px;
+}
+
 .addon-card {
   background: #fff;
   border: 1.5px solid var(--border-cream-2);

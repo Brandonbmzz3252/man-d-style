@@ -55,11 +55,11 @@ const SERVICES = [
 const TIMES = []; // placeholder (unused; times now depend on weekday)
 
 const ADDONS = [
-  { id: "trim",  name: "Trim",                  dur: "",       price: 35  },
-  { id: "ns30",  name: "Neck & Shoulder",       dur: "30 min", price: 180 },
-  { id: "ns40",  name: "Neck & Shoulder",       dur: "40 min", price: 200 },
-  { id: "hns30", name: "Head, Neck & Shoulder", dur: "30 min", price: 200 },
-  { id: "hns40", name: "Head, Neck & Shoulder", dur: "40 min", price: 220 }
+  { id: "trim",  name: "Trim",                  dur: "",       price: 35 },
+  { id: "ns30",  name: "Neck & Shoulder",       dur: "30 min", price: 180, group: "Massage" },
+  { id: "ns40",  name: "Neck & Shoulder",       dur: "40 min", price: 200, group: "Massage" },
+  { id: "hns30", name: "Head, Neck & Shoulder", dur: "30 min", price: 200, group: "Massage" },
+  { id: "hns40", name: "Head, Neck & Shoulder", dur: "40 min", price: 220, group: "Massage" }
 ];
 
 function weekday(iso) {
@@ -224,8 +224,16 @@ function addonCardHTML(a) {
 }
 
 function renderAddons() {
-  $("service-list-addons").innerHTML = ADDONS.map(addonCardHTML).join("");
-  updateLiveTotal();
+  const rows = [];
+  let lastGroup = null;
+  ADDONS.forEach((a) => {
+    if (a.group && a.group !== lastGroup) {
+      rows.push(`<div class="addon-group">${a.group}</div>`);
+    }
+    lastGroup = a.group || null;
+    rows.push(addonCardHTML(a));
+  });
+  $("service-list-addons").innerHTML = rows.join("");
 }
 
 function updateLiveTotal() {
