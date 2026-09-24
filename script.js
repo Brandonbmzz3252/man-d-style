@@ -53,6 +53,15 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+/* Hardened storage — in-app browsers (WhatsApp/Gmail), private mode and some
+   privacy settings throw on localStorage access, which must never kill the app. */
+function lsGet(k) {
+  try { return localStorage.getItem(k); } catch (e) { return null; }
+}
+function lsSet(k, v) {
+  try { localStorage.setItem(k, v); } catch (e) {}
+}
+
 /* ---- app theme (mirrors the Expo app's 4 themes) ---- */
 const THEME_KEY = "mds_theme";
 const THEME_OPTIONS = [
@@ -64,7 +73,7 @@ const THEME_OPTIONS = [
 const THEME_META = { emerald: "#14301F", royal: "#241744", ocean: "#123648", ember: "#421A12" };
 
 function currentTheme() {
-  const t = (localStorage.getItem(THEME_KEY) || "emerald");
+  const t = lsGet(THEME_KEY) || "emerald";
   return THEME_OPTIONS.some((x) => x.name === t) ? t : "emerald";
 }
 
@@ -93,7 +102,7 @@ document.addEventListener("click", (e) => {
   if (!pick) return;
   e.preventDefault();
   const name = pick.dataset.theme;
-  try { localStorage.setItem(THEME_KEY, name); } catch (err) {}
+  lsSet(THEME_KEY, name);
   applyTheme(name);
   renderThemeList();
 });
@@ -516,14 +525,14 @@ $("confirm-btn").addEventListener("click", async (e) => {
 
 /* ---- appointments ---- */
 function getBookings() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  try { return JSON.parse(lsGet(STORAGE_KEY)) || []; }
   catch (e) { return []; }
 }
 
 function saveBooking(b) {
   const all = getBookings();
   all.push(b);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+  lsSet(STORAGE_KEY, JSON.stringify(all));
 }
 
 async function pushBooking(b) {
@@ -634,7 +643,7 @@ async function renderAppointments(view) {
       local.forEach((lb) => {
         if (lb.date === b.date && lb.time === b.time && lb.name === b.name) {
           const all = getBookings().filter((x) => !(x.date === lb.date && x.time === lb.time && x.name === lb.name && x.phone === lb.phone));
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+          lsSet(STORAGE_KEY, JSON.stringify(all));
         }
       });
       await freeSlotOnSheet(b);
@@ -697,11 +706,11 @@ async function mdsCheckUpdate() {
     const res = await fetch(u, { cache: "no-store" });
     const data = await res.json();
     const deployed = Number(data.seq) || 0;
-    const seen = Number(localStorage.getItem(MDS_VER_KEY)) || 0;
+    const seen = Number(lsGet(MDS_VER_KEY)) || 0;
     if (deployed <= 0) return;
-    if (!seen) { localStorage.setItem(MDS_VER_KEY, String(deployed)); return; }
+    if (!seen) { lsSet(MDS_VER_KEY, String(deployed)); return; }
     if (deployed > seen) {
-      localStorage.setItem(MDS_VER_KEY, String(deployed));
+      lsSet(MDS_VER_KEY, String(deployed));
       flash("New version available - updating\u2026");
       setTimeout(() => location.reload(), 1500);
     }
