@@ -306,10 +306,21 @@ document.addEventListener("click", (e) => {
 
 /* ---- wizard navigation ---- */
 function goStep(n) {
-  document.querySelectorAll(".step").forEach((el, i) => {
+  const panels = document.querySelectorAll(".step");
+  panels.forEach((el, i) => {
     el.classList.toggle("active", (i + 1) === n);
   });
   if (n === 2) { renderCalendar(); renderTimes(); }
+  /* The step panels are in-flow (display:none/block), so switching steps
+     changes the booking card's height and the sections below it shift up,
+     making it look like the page jumped to Appointments. Scroll the active
+     step back into view so the user always lands on the current step. */
+  const panel = panels[n - 1];
+  if (panel) {
+    const y = panel.getBoundingClientRect().top + window.pageYOffset - 10;
+    try { window.scrollTo({ top: y, behavior: "smooth" }); }
+    catch (e) { window.scrollTo(0, y); }
+  }
 }
 
 $("next-1").addEventListener("click", () => {
