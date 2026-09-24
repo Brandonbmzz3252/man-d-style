@@ -767,6 +767,17 @@ function smartWhatsAppOpen(url) {
   }
 }
 
+/* ---- app download ---- 
+   Same-tab navigation — new tabs/popups are blocked by several in-app
+   browsers, which makes the APK download look like "nothing happened". */
+const dlBtn = $("dl-apk");
+if (dlBtn) {
+  dlBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.location.href = dlBtn.href;
+  });
+}
+
 /* ---- bottom nav active state ---- */
 document.querySelectorAll(".bn-item").forEach((item) => {
   item.addEventListener("click", () => {
