@@ -1224,6 +1224,28 @@ body {
   padding: 4px 0 16px;
 }
 
+.dl-btn {
+  display: block;
+  text-align: center;
+  background: var(--green);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 13px 18px;
+  border-radius: 14px;
+  margin: 4px 0 14px;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.dl-btn:hover {
+  background: var(--green-deep);
+}
+
+.dl-btn:active {
+  transform: scale(0.98);
+}
+
 .contact-list {
   display: flex;
   flex-direction: column;

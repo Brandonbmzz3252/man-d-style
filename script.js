@@ -1,6 +1,6 @@
 const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 
 /* Polyfills for older Android / in-app browsers — a missing method here
    used to crash the whole app at load. */
