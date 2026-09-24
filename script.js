@@ -544,12 +544,13 @@ $("confirm-btn").addEventListener("click", async (e) => {
 
     goStep(4);
 
-    // Booking is saved — now push the WhatsApp message. If the browser
-    // blocks the popup, fall back to navigating straight to WhatsApp.
+    // Booking is saved — now go straight to WhatsApp in the same tab. Same-tab
+    // navigation deep-links into the app; new-tab (window.open) renders the
+    // wa.me "Go to WhatsApp / Open WhatsApp / Download" interstitial in most
+    // mobile browsers, which clients don't want.
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildMessage(booking.name, booking.phone, booking.service, booking.price, booking.date, booking.time, booking.notes, addons, totalLabel))}`;
     $("wa-open").href = url;
-    const wa = window.open(url, "_blank");
-    if (!wa) window.location.href = url;
+    window.location.href = url;
   } catch (err) {
     flash("Something went wrong sending the booking. Please try again.");
   }
@@ -682,7 +683,7 @@ async function renderAppointments(view) {
       if (!confirm("Cancel this appointment?\nA cancellation notification will be sent, and the slot will reopen.")) return;
       const ix = [...wrap.querySelectorAll(".cancel-appt")].indexOf(a);
       const b = sorted[ix];
-      window.open(a.href, "_blank"); // opens WhatsApp now, inside the click (never blocked)
+      window.location.href = a.href; // straight to WhatsApp, same tab, no interstitial
       local.forEach((lb) => {
         if (lb.date === b.date && lb.time === b.time && lb.name === b.name) {
           const all = getBookings().filter((x) => !(x.date === lb.date && x.time === lb.time && x.name === lb.name && x.phone === lb.phone));
