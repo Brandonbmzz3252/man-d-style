@@ -2,6 +2,49 @@ const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
 const APP_VERSION = "1.3";
 
+/* Polyfills for older Android / in-app browsers — a missing method here
+   used to crash the whole app at load. */
+if (!String.prototype.padStart) {
+  String.prototype.padStart = function (len, ch) {
+    let s = String(this);
+    while (s.length < len) s = (ch || "0") + s;
+    return s;
+  };
+}
+if (!String.prototype.padEnd) {
+  String.prototype.padEnd = function (len, ch) {
+    let s = String(this);
+    while (s.length < len) s = s + (ch || " ");
+    return s;
+  };
+}
+if (!Array.prototype.includes) {
+  Array.prototype.includes = function (x) { return this.indexOf(x) !== -1; };
+}
+
+/* ---- diagnostics: shows any runtime error as a small red bar so a broken
+   page can be reported instead of silently failing. Removable at any time. ---- */
+window.__mds = { errors: [], ready: false };
+function renderDbg() {
+  if (!window.__mds.errors.length) return;
+  let el = document.getElementById("mds-dbg");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "mds-dbg";
+    el.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:99999;background:#7a1c1c;color:#fff;font:12px/1.4 monospace;padding:8px 12px;word-break:break-all;";
+    document.body.appendChild(el);
+  }
+  el.textContent = "ERROR: " + window.__mds.errors.join(" | ");
+}
+window.addEventListener("error", function (e) {
+  window.__mds.errors.push(String((e && e.message) || ""));
+  renderDbg();
+});
+window.addEventListener("unhandledrejection", function (e) {
+  window.__mds.errors.push("rejection: " + String((e && e.reason)));
+  renderDbg();
+});
+
 const SERVICES = [
   { id: "short", name: "Short", price: "R160", kidsPrice: "R120" },
   { id: "medium", name: "Medium", price: "R180", kidsPrice: "R140" },
@@ -718,18 +761,24 @@ async function mdsCheckUpdate() {
 }
 
 /* ---- init ---- */
-mdsCheckUpdate();
-setInterval(mdsCheckUpdate, MDS_VER_INTERVAL);
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) mdsCheckUpdate();
-});
+try {
+  mdsCheckUpdate();
+  setInterval(mdsCheckUpdate, MDS_VER_INTERVAL);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) mdsCheckUpdate();
+  });
 
-renderServices();
-renderAddons();
-renderTimes();
-renderCalendar();
-renderAppointments("upcoming");
-syncBookings();
-renderThemeList();
-$("year").textContent = new Date().getFullYear();
-$("app-version").textContent = `MAN-D-STYLE v${APP_VERSION}`;
+  renderServices();
+  renderAddons();
+  renderTimes();
+  renderCalendar();
+  renderAppointments("upcoming");
+  syncBookings();
+  renderThemeList();
+  $("year").textContent = new Date().getFullYear();
+  $("app-version").textContent = `MAN-D-STYLE v${APP_VERSION}`;
+  window.__mds.ready = true;
+} catch (err) {
+  window.__mds.errors.push("init: " + (err && err.message));
+  renderDbg();
+}
