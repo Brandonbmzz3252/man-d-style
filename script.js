@@ -56,10 +56,10 @@ const TIMES = []; // placeholder (unused; times now depend on weekday)
 
 const ADDONS = [
   { id: "trim",  name: "Trim",                  dur: "",       price: 35 },
-  { id: "ns30",  name: "Neck & Shoulder",       dur: "30 min", price: 180, group: "Massage" },
-  { id: "ns40",  name: "Neck & Shoulder",       dur: "40 min", price: 200, group: "Massage" },
-  { id: "hns30", name: "Head, Neck & Shoulder", dur: "30 min", price: 200, group: "Massage" },
-  { id: "hns40", name: "Head, Neck & Shoulder", dur: "40 min", price: 220, group: "Massage" }
+  { id: "ns30",  name: "Neck & Shoulder",       dur: "30 min", price: 180, group: "Massages" },
+  { id: "hns30", name: "Head, Neck & Shoulder", dur: "30 min", price: 200, group: "Massages" },
+  { id: "ns40",  name: "Neck & Shoulder",       dur: "40 min", price: 200, group: "Massages" },
+  { id: "hns40", name: "Head, Neck & Shoulder", dur: "40 min", price: 220, group: "Massages" }
 ];
 
 function weekday(iso) {

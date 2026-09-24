@@ -659,11 +659,10 @@ body {
 .addons-list { display: flex; flex-direction: column; gap: 9px; }
 
 .addon-group {
-  font-family: "Dancing Script", cursive;
-  font-size: 20px;
   font-weight: 700;
+  font-size: 14.5px;
   color: var(--green-mid);
-  padding: 14px 2px 2px;
+  margin: 12px 0 4px;
 }
 
 .addon-card {
