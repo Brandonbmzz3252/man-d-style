@@ -53,6 +53,51 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+/* ---- app theme (mirrors the Expo app's 4 themes) ---- */
+const THEME_KEY = "mds_theme";
+const THEME_OPTIONS = [
+  { name: "emerald", label: "Emerald", swatch: ["#14301F", "#D4A657", "#F5EFE0"] },
+  { name: "royal", label: "Royal Plum", swatch: ["#241744", "#C79A4B", "#F4EEFA"] },
+  { name: "ocean", label: "Deep Ocean", swatch: ["#123648", "#3FB4AD", "#EFF5F7"] },
+  { name: "ember", label: "Ember", swatch: ["#421A12", "#E0792C", "#F9F0E4"] }
+];
+const THEME_META = { emerald: "#14301F", royal: "#241744", ocean: "#123648", ember: "#421A12" };
+
+function currentTheme() {
+  const t = (localStorage.getItem(THEME_KEY) || "emerald");
+  return THEME_OPTIONS.some((x) => x.name === t) ? t : "emerald";
+}
+
+function applyTheme(name) {
+  document.documentElement.dataset.theme = name;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", THEME_META[name] || "#14301F");
+}
+
+function renderThemeList() {
+  const list = $("theme-list");
+  if (!list) return;
+  const t = currentTheme();
+  list.innerHTML = THEME_OPTIONS.map((x) => `
+    <a class="contact-row${t === x.name ? " active" : ""}" href="#contact" data-theme="${x.name}" aria-pressed="${t === x.name}">
+      <span class="theme-swatches">${x.swatch.map((c) => `<span class="theme-chip" style="background:${c}"></span>`).join("")}</span>
+      <span class="th-info" style="flex:1"><span class="c-primary">${x.label}</span><span class="c-sub">${t === x.name ? "Active now" : "Tap to apply"}</span></span>
+      ${t === x.name ? '<svg class="ic sm"><use href="#check"/></svg>' : ""}
+    </a>`).join("");
+}
+
+applyTheme(currentTheme());
+
+document.addEventListener("click", (e) => {
+  const pick = e.target.closest("[data-theme]");
+  if (!pick) return;
+  e.preventDefault();
+  const name = pick.dataset.theme;
+  try { localStorage.setItem(THEME_KEY, name); } catch (err) {}
+  applyTheme(name);
+  renderThemeList();
+});
+
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -341,7 +386,7 @@ function buildMessage(name, phone, service, price, date, time, notes, addons, to
     "",
     `Name: ${name}`,
     `Contact: ${phone}`,
-    `Service: ${service}${price ? " (" + price + ")" : ""}`
+    addons && addons.length ? `Service: ${service}` : `Service: ${service}${price ? " (" + price + ")" : ""}`
   ];
   if (addons && addons.length) {
     lines.push("Additional:");
@@ -390,7 +435,7 @@ $("confirm-btn").addEventListener("click", async (e) => {
     time: state.time,
     name: state.name,
     phone: state.phone,
-    notes: addons.length ? [state.notes, "Additional: " + addonsLabel].filter(Boolean).join("\n") : state.notes,
+    notes: state.notes,
     ts: Date.now()
   };
 
@@ -660,5 +705,6 @@ renderTimes();
 renderCalendar();
 renderAppointments("upcoming");
 syncBookings();
+renderThemeList();
 $("year").textContent = new Date().getFullYear();
 $("app-version").textContent = `MAN-D-STYLE v${APP_VERSION}`;
