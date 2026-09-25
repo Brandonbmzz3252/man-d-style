@@ -1,6 +1,6 @@
 const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
-const APP_VERSION = "1.5";
+const APP_VERSION = "1.6";
 
 /* Periodically re-fetch bookings and availability so the calendar stays fresh
    without the user needing to reload the page. Poll interval = 5 minutes. */
