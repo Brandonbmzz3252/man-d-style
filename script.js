@@ -398,28 +398,76 @@ $("cal-grid").addEventListener("click", (e) => {
 
 /* ---- time pills ---- */
 let remoteBookings = [];
+let remoteAvailability = [];
 
-async function syncBookings() {
-  const url = window.MDS_BACKEND_URL;
-  if (!url) { remoteBookings = []; renderTimes(); return; }
+const REMOTE_BOOKINGS_KEY = "mds_remote_bookings";
+const REMOTE_AVAIL_KEY = "mds_remote_avail";
+const FETCH_TIMEOUT = 12000;
+
+/* Google Apps Script people-server can cold-start for up to a minute. Cap a
+   backend call so a hung request can never freeze the booking screen. */
+function withTimeout(promise, ms) {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => resolve(null), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      () => { clearTimeout(t); resolve(null); }
+    );
+  });
+}
+
+/* Paint the most recently seen server state instantly (greyed-out slots on
+   first tap), then let syncData() refresh it in the background. */
+function seedRemoteCache() {
   try {
-    const res = await fetch(url);
+    const b = JSON.parse(lsGet(REMOTE_BOOKINGS_KEY));
+    if (b && Array.isArray(b.v)) remoteBookings = b.v;
+    const a = JSON.parse(lsGet(REMOTE_AVAIL_KEY));
+    if (a && Array.isArray(a.v)) remoteAvailability = a.v;
+  } catch (e) {}
+}
+
+async function syncData() {
+  const url = window.MDS_BACKEND_URL;
+  if (!url) { remoteBookings = []; remoteAvailability = []; renderTimes(); return; }
+  const res = await withTimeout(fetch(url), FETCH_TIMEOUT);
+  if (!res) { renderTimes(); return; }
+  try {
     const data = await res.json();
     remoteBookings = data && data.ok && Array.isArray(data.bookings) ? data.bookings : [];
+    remoteAvailability = data && data.ok && Array.isArray(data.availability) ? data.availability : [];
+    lsSet(REMOTE_BOOKINGS_KEY, JSON.stringify({ t: Date.now(), v: remoteBookings }));
+    lsSet(REMOTE_AVAIL_KEY, JSON.stringify({ t: Date.now(), v: remoteAvailability }));
   } catch (e) {
     remoteBookings = [];
+    remoteAvailability = [];
   }
   renderTimes();
 }
 
+/* Admin custom schedules (mirrors src/lib/api.ts). A date with a custom day
+   uses exactly those slots; anything else falls back to the weekday rules. */
+function overrideTimesFor(iso) {
+  if (!remoteAvailability || !remoteAvailability.length) return null;
+  const o = remoteAvailability.find((x) => x.date === iso);
+  return o && Array.isArray(o.times) ? o.times : null;
+}
+
+function effectiveTimesFor(iso) {
+  return overrideTimesFor(iso) || timesForDate(iso);
+}
+
 function bookedWindow(dateISO, checkTime, gapMin) {
   const all = getBookings().concat(remoteBookings);
-  if (isWeekday(dateISO)) {
+  const overridden = overrideTimesFor(dateISO) !== null;
+  // Custom schedules keep the same rule as a normal day: a booking makes the
+  // 3 hours before and the 3 hours after unavailable (no overlaps).
+  if (!overridden && isWeekday(dateISO)) {
     // Mon-Fri: any existing booking fills the whole day
     return all.some((b) => b.date === dateISO);
   }
-  // Saturday: each client takes 3 hours, so nothing may START within
-  // 3 hours before OR after an existing booking (no overlaps).
+  // Saturday & admin-set days: each client takes 3 hours, so nothing may START
+  // within 3 hours before OR after an existing booking.
   const t = toMinutes(checkTime);
   return all.some((b) => {
     if (b.date !== dateISO) return false;
@@ -434,7 +482,7 @@ function isWeekday(iso) {
 }
 
 function renderTimes() {
-  const times = timesForDate(state.date || todayISO());
+  const times = effectiveTimesFor(state.date || todayISO());
   const gapMin = 180;
 
   $("time-grid").innerHTML = times.map((t) => {
@@ -518,7 +566,7 @@ $("confirm-btn").addEventListener("click", async (e) => {
   // other way round (a lost WhatsApp tab must not orphan the booking).
   try {
     // Fresh server check — someone else may have taken the slot since page load.
-    await syncBookings();
+    await syncData();
     if (bookedWindow(state.date, state.time, 180)) {
       flash("Sorry, that time was just booked. Please pick another.");
       state.time = "";
@@ -600,11 +648,12 @@ function saveBooking(b) {
 async function pushBooking(b) {
   const url = window.MDS_BACKEND_URL;
   if (!url) return true; // local-only mode: no server to arbitrate
+  const res = await withTimeout(fetch(url, {
+    method: "POST",
+    body: JSON.stringify(b)
+  }), FETCH_TIMEOUT);
+  if (!res) return true; // backend unresponsive — accept rather than block
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      body: JSON.stringify(b)
-    });
     const data = await res.json();
     if (data && data.ok) return true;
     return false; // server said taken / unavailable
@@ -618,13 +667,14 @@ async function pushBooking(b) {
 async function myBookings() {
   const url = window.MDS_BACKEND_URL;
   if (!url) return null;
-  const phones = [...new Set(getBookings().map((b) => b.phone).filter(Boolean))];
+const phones = [...new Set(getBookings().map((b) => b.phone).filter(Boolean))];
   if (!phones.length) return [];
+  const res = await withTimeout(fetch(url, {
+    method: "POST",
+    body: JSON.stringify({ action: "myBookings", phone: phones.join(",") })
+  }), FETCH_TIMEOUT);
+  if (!res) return null;
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      body: JSON.stringify({ action: "myBookings", phone: phones[0] })
-    });
     const data = await res.json();
     if (data && data.ok && Array.isArray(data.bookings)) return data.bookings;
     return null;
@@ -635,12 +685,10 @@ async function myBookings() {
 async function freeSlotOnSheet(b) {
   const url = window.MDS_BACKEND_URL;
   if (!url) { return; }
-  try {
-    await fetch(url, {
-      method: "POST",
-      body: JSON.stringify({ action: "cancel", date: b.date, time: b.time, phone: b.phone })
-    });
-  } catch (e) {}
+  await withTimeout(fetch(url, {
+    method: "POST",
+    body: JSON.stringify({ action: "cancel", date: b.date, time: b.time, phone: b.phone })
+  }), FETCH_TIMEOUT);
 }
 
 function buildCancelMessage(b) {
@@ -710,7 +758,7 @@ async function renderAppointments(view) {
       });
       await freeSlotOnSheet(b);
       await renderAppointments(apptView);
-      syncBookings();
+      syncData();
       flash("Booking cancelled — slot reopened.");
     });
   });
@@ -844,10 +892,11 @@ try {
 
   renderServices();
   renderAddons();
+  seedRemoteCache();
   renderTimes();
   renderCalendar();
   renderAppointments("upcoming");
-  syncBookings();
+  syncData();
   renderThemeList();
   $("year").textContent = new Date().getFullYear();
   $("app-version").textContent = `MAN-D-STYLE v${APP_VERSION}`;
