@@ -2,6 +2,10 @@ const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
 const APP_VERSION = "1.5";
 
+/* Periodically re-fetch bookings and availability so the calendar stays fresh
+   without the user needing to reload the page. Poll interval = 5 minutes. */
+const MDS_BOOKINGS_REFRESH_MS = 5 * 60 * 1000;
+
 /* Polyfills for older Android / in-app browsers — a missing method here
    used to crash the whole app at load. */
 if (!String.prototype.padStart) {
@@ -431,18 +435,48 @@ async function syncData() {
   const url = window.MDS_BACKEND_URL;
   if (!url) { remoteBookings = []; remoteAvailability = []; renderTimes(); return; }
   const res = await withTimeout(fetch(url), FETCH_TIMEOUT);
+  // A timeout / network hiccup must NEVER blank the known bookings — doing
+  // that is exactly what makes taken slots look open. Keep the last good state.
   if (!res) { renderTimes(); return; }
   try {
     const data = await res.json();
-    remoteBookings = data && data.ok && Array.isArray(data.bookings) ? data.bookings : [];
-    remoteAvailability = data && data.ok && Array.isArray(data.availability) ? data.availability : [];
-    lsSet(REMOTE_BOOKINGS_KEY, JSON.stringify({ t: Date.now(), v: remoteBookings }));
-    lsSet(REMOTE_AVAIL_KEY, JSON.stringify({ t: Date.now(), v: remoteAvailability }));
+    if (data && data.ok) {
+      if (Array.isArray(data.bookings)) {
+        remoteBookings = data.bookings;
+        lsSet(REMOTE_BOOKINGS_KEY, JSON.stringify({ t: Date.now(), v: remoteBookings }));
+      }
+      if (Array.isArray(data.availability)) {
+        remoteAvailability = data.availability;
+        lsSet(REMOTE_AVAIL_KEY, JSON.stringify({ t: Date.now(), v: remoteAvailability }));
+      }
+    }
   } catch (e) {
-    remoteBookings = [];
-    remoteAvailability = [];
+    // Unreadable payload - leave the last good state in place.
   }
   renderTimes();
+}
+
+/* Background refresh so a page left open never shows a slot that is already
+   taken (the app does the same via focus/foreground checks). */
+let mdsRefreshTimer = null;
+let mdsRefreshBusy = false;
+function syncDataInBackground() {
+  if (mdsRefreshBusy || document.hidden) return;
+  mdsRefreshBusy = true;
+  syncData()
+    .catch(() => {})
+    .then(() => { mdsRefreshBusy = false; });
+}
+function startBookingsRefresh() {
+  if (mdsRefreshTimer) return;
+  mdsRefreshTimer = setInterval(syncDataInBackground, MDS_BOOKINGS_REFRESH_MS);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) syncDataInBackground();
+  });
+  window.addEventListener("beforeunload", () => {
+    if (mdsRefreshTimer) clearInterval(mdsRefreshTimer);
+    mdsRefreshTimer = null;
+  });
 }
 
 /* Admin custom schedules (mirrors src/lib/api.ts). A date with a custom day
@@ -897,6 +931,7 @@ try {
   renderCalendar();
   renderAppointments("upcoming");
   syncData();
+  startBookingsRefresh();
   renderThemeList();
   $("year").textContent = new Date().getFullYear();
   $("app-version").textContent = `MAN-D-STYLE v${APP_VERSION}`;
