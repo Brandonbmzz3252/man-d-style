@@ -1,6 +1,6 @@
 const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 
 /* Periodically re-fetch bookings and availability so the calendar stays fresh
    without the user needing to reload the page. Poll interval = 5 minutes. */
@@ -115,15 +115,18 @@ const THEME_OPTIONS = [
 ];
 const THEME_META = { emerald: "#14301F", royal: "#241744", ocean: "#123648", ember: "#421A12" };
 
+/* Ember is the default theme (mirrors the Expo app). */
+const DEFAULT_THEME = "ember";
+
 function currentTheme() {
-  const t = lsGet(THEME_KEY) || "emerald";
-  return THEME_OPTIONS.some((x) => x.name === t) ? t : "emerald";
+  const t = lsGet(THEME_KEY) || DEFAULT_THEME;
+  return THEME_OPTIONS.some((x) => x.name === t) ? t : DEFAULT_THEME;
 }
 
 function applyTheme(name) {
   document.documentElement.dataset.theme = name;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", THEME_META[name] || "#14301F");
+  if (meta) meta.setAttribute("content", THEME_META[name] || THEME_META[DEFAULT_THEME]);
 }
 
 function renderThemeList() {
