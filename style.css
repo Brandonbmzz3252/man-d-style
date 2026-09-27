@@ -875,6 +875,12 @@ body {
 }
 
 /* ---------- time pills ---------- */
+.times-note {
+  font-size: 12px;
+  color: var(--taupe-2);
+  margin: 0 0 8px;
+}
+
 .time-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

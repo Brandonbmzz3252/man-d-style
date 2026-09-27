@@ -402,7 +402,10 @@ let remoteAvailability = [];
 
 const REMOTE_BOOKINGS_KEY = "mds_remote_bookings";
 const REMOTE_AVAIL_KEY = "mds_remote_avail";
-const FETCH_TIMEOUT = 12000;
+// The Apps Script backend is slow to wake up (measured 4-25s, and it can fail
+// outright), so give a request real time to finish before giving up on it.
+const FETCH_TIMEOUT = 35000;
+const FETCH_RETRIES = 2;
 
 /* Google Apps Script people-server can cold-start for up to a minute. Cap a
    backend call so a hung request can never freeze the booking screen. */
@@ -418,50 +421,66 @@ function withTimeout(promise, ms) {
 
 /* Paint the most recently seen server state instantly (greyed-out slots on
    first tap), then let syncData() refresh it in the background. */
+let dataReady = false; // true once we have confirmed booking data for this page
+
 function seedRemoteCache() {
   try {
     const b = JSON.parse(lsGet(REMOTE_BOOKINGS_KEY));
-    if (b && Array.isArray(b.v)) remoteBookings = b.v;
+    if (b && Array.isArray(b.v)) { remoteBookings = b.v; dataReady = true; }
     const a = JSON.parse(lsGet(REMOTE_AVAIL_KEY));
     if (a && Array.isArray(a.v)) remoteAvailability = a.v;
   } catch (e) {}
 }
 
+async function fetchOnce() {
+  const res = await withTimeout(fetch(window.MDS_BACKEND_URL), FETCH_TIMEOUT);
+  if (!res || !res.ok) return null;
+  return await res.json();
+}
+
 async function syncData() {
   const url = window.MDS_BACKEND_URL;
-  if (!url) { remoteBookings = []; remoteAvailability = []; renderTimes(); return; }
-  const res = await withTimeout(fetch(url), FETCH_TIMEOUT);
-  // A timeout / network hiccup must NEVER blank the known bookings — doing
+  if (!url) { remoteBookings = []; remoteAvailability = []; dataReady = false; renderTimes(); return; }
+  let data = null;
+  for (let attempt = 0; attempt <= FETCH_RETRIES && !data; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1200 * attempt));
+    try { data = await fetchOnce(); } catch (e) { data = null; }
+  }
+  // A timeout / network hiccup must NEVER blank the known bookings - doing
   // that is exactly what makes taken slots look open. Keep the last good state.
-  if (!res) { renderTimes(); return; }
-  try {
-    const data = await res.json();
-    if (data && data.ok) {
-      if (Array.isArray(data.bookings)) {
-        remoteBookings = data.bookings;
-        lsSet(REMOTE_BOOKINGS_KEY, JSON.stringify({ t: Date.now(), v: remoteBookings }));
-      }
-      if (Array.isArray(data.availability)) {
-        remoteAvailability = data.availability;
-        lsSet(REMOTE_AVAIL_KEY, JSON.stringify({ t: Date.now(), v: remoteAvailability }));
-      }
+  if (data && data.ok) {
+    if (Array.isArray(data.bookings)) {
+      remoteBookings = data.bookings;
+      lsSet(REMOTE_BOOKINGS_KEY, JSON.stringify({ t: Date.now(), v: remoteBookings }));
     }
-  } catch (e) {
-    // Unreadable payload - leave the last good state in place.
+    if (Array.isArray(data.availability)) {
+      remoteAvailability = data.availability;
+      lsSet(REMOTE_AVAIL_KEY, JSON.stringify({ t: Date.now(), v: remoteAvailability }));
+    }
+    dataReady = true;
   }
   renderTimes();
 }
 
 /* Background refresh so a page left open never shows a slot that is already
-   taken (the app does the same via focus/foreground checks). */
+   taken (the app does the same via focus/foreground checks). While the data is
+   still unknown we retry aggressively - every 8s - because until it arrives no
+   slot can be offered at all. */
 let mdsRefreshTimer = null;
+let mdsRetryTimer = null;
 let mdsRefreshBusy = false;
 function syncDataInBackground() {
   if (mdsRefreshBusy || document.hidden) return;
   mdsRefreshBusy = true;
   syncData()
     .catch(() => {})
-    .then(() => { mdsRefreshBusy = false; });
+    .then(() => {
+      mdsRefreshBusy = false;
+      if (!dataReady) {
+        if (mdsRetryTimer) clearTimeout(mdsRetryTimer);
+        mdsRetryTimer = setTimeout(syncDataInBackground, 8000);
+      }
+    });
 }
 function startBookingsRefresh() {
   if (mdsRefreshTimer) return;
@@ -471,7 +490,9 @@ function startBookingsRefresh() {
   });
   window.addEventListener("beforeunload", () => {
     if (mdsRefreshTimer) clearInterval(mdsRefreshTimer);
+    if (mdsRetryTimer) clearTimeout(mdsRetryTimer);
     mdsRefreshTimer = null;
+    mdsRetryTimer = null;
   });
 }
 
@@ -514,11 +535,22 @@ function isWeekday(iso) {
 function renderTimes() {
   const times = effectiveTimesFor(state.date || todayISO());
   const gapMin = 180;
+  // Until we have confirmed booking data we must NOT offer any slot: a slot
+  // shown as free that is actually taken is a double booking.
+  const unknown = !dataReady;
 
   $("time-grid").innerHTML = times.map((t) => {
-    const booked = bookedWindow(state.date || todayISO(), t, gapMin);
+    const booked = unknown || bookedWindow(state.date || todayISO(), t, gapMin);
     return `<button type="button" class="time-pill${t === state.time && !booked ? " selected" : ""}${booked ? " booked" : ""}" data-time="${t}"${booked ? " disabled" : ""}>${t}</button>`;
   }).join("");
+
+  const note = $("times-note");
+  if (note) {
+    note.textContent = unknown
+      ? "Checking which times are free - please wait a moment."
+      : "";
+    note.style.display = unknown ? "block" : "none";
+  }
 }
 
 $("time-grid").addEventListener("click", (e) => {

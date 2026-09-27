@@ -5,12 +5,16 @@
 //    OR: Deploy -> Manage deployments -> Edit -> New version (after edits)
 // 4) Copy the /exec URL into config.js (window.MDS_BACKEND_URL)
 //
-// Admin credentials:
-//   - Default staff password:  Mandy@1234   (changeable via the Staff panel)
-//   - Master key (overrides everything): ZetaZoe@1234
+// SECURITY: this file lives in a PUBLIC repository, so it must never contain a
+// real password. The staff password and master key are stored only as SHA-256
+// hashes in Script Properties (MDS_ADMIN_HASH / MDS_MASTER_HASH) and are changed
+// from the app's Staff panel. If a property is missing, login is refused rather
+// than falling back to a published default.
 
 var ADMIN_HASH_KEY = "MDS_ADMIN_HASH";
 var MASTER_HASH_KEY = "MDS_MASTER_HASH";
+var DATA_CACHE_KEY = "mds_data_cache";
+var DATA_CACHE_SECONDS = 60;
 
 function hashPw(pw) {
   var digest = Utilities.computeDigest(
@@ -20,13 +24,7 @@ function hashPw(pw) {
 }
 
 function getAdminHash() {
-  var props = PropertiesService.getScriptProperties();
-  var h = props.getProperty(ADMIN_HASH_KEY);
-  if (!h) {
-    h = hashPw("Mandy@1234");
-    props.setProperty(ADMIN_HASH_KEY, h);
-  }
-  return h;
+  return PropertiesService.getScriptProperties().getProperty(ADMIN_HASH_KEY) || "";
 }
 
 function setAdminHash(h) {
@@ -34,13 +32,21 @@ function setAdminHash(h) {
 }
 
 function getMasterHash() {
-  var props = PropertiesService.getScriptProperties();
-  var h = props.getProperty(MASTER_HASH_KEY);
-  if (!h) {
-    h = hashPw("ZetaZoe@1234");
-    props.setProperty(MASTER_HASH_KEY, h);
-  }
-  return h;
+  return PropertiesService.getScriptProperties().getProperty(MASTER_HASH_KEY) || "";
+}
+
+function setMasterHash(h) {
+  PropertiesService.getScriptProperties().setProperty(MASTER_HASH_KEY, h);
+}
+
+// Run this ONCE from the Apps Script editor to set your own passwords, e.g.
+//   setCredentials("MyStaffPassword", "MyMasterKey");
+// Only the hashes are stored. Afterwards you can also change them any time
+// from the app's Staff panel (master key can set a new staff password).
+function setCredentials(staffPw, masterKey) {
+  if (staffPw) setAdminHash(hashPw(String(staffPw)));
+  if (masterKey) setMasterHash(hashPw(String(masterKey)));
+  return "saved - now log in with those passwords";
 }
 
 function verifyRole(pw) {
@@ -50,9 +56,40 @@ function verifyRole(pw) {
   return null;
 }
 
+/* ---- read cache ----
+   Apps Script cold starts made every booking page wait 4-25s (and sometimes
+   fail outright), which left clients showing already-taken slots as open.
+   The public read is now cached briefly and every write invalidates it. */
+function readCache() {
+  try {
+    var raw = CacheService.getScriptCache().get(DATA_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeCache(obj) {
+  try {
+    CacheService.getScriptCache().put(DATA_CACHE_KEY, JSON.stringify(obj), DATA_CACHE_SECONDS);
+  } catch (err) {}
+}
+
+function invalidateCache() {
+  try { CacheService.getScriptCache().remove(DATA_CACHE_KEY); } catch (err) {}
+}
+
+function getData() {
+  var cached = readCache();
+  if (cached) return cached;
+  var fresh = { bookings: getAllBookings(), availability: listAvailabilityData() };
+  writeCache(fresh);
+  return fresh;
+}
+
 function doGet() {
-  migratePhones();
-  return jsonOut({ ok: true, bookings: getAllBookings(), availability: listAvailabilityData() });
+  var d = getData();
+  return jsonOut({ ok: true, bookings: d.bookings, availability: d.availability });
 }
 
 function canonPhone(p) {
@@ -65,6 +102,9 @@ function canonPhone(p) {
 
 // One-time + ongoing guard: rewrites saved phone numbers into one consistent
 // 27XXXXXXXXX format so lookups, admin and WhatsApp always agree.
+// NOTE: deliberately NOT called from doGet/doPost. It reads (and can write)
+// the whole Bookings sheet, which made every page load slow. Run it once from
+// the editor, or after importing legacy rows.
 function migratePhones() {
   try {
     var sh = getSheet();
@@ -87,7 +127,6 @@ function migratePhones() {
 
 function doPost(e) {
   var b = {};
-  migratePhones();
   try { b = JSON.parse(e.postData.contents); } catch (err) {
     return jsonOut({ ok: false, error: "bad_json" });
   }
@@ -113,6 +152,9 @@ function doPost(e) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
+    // Read under the lock and drop the cache first, so two clients submitting
+    // the same slot at the same moment can never both be accepted.
+    invalidateCache();
     if (isSlotTaken(b.date, b.time)) {
       return jsonOut({ ok: false, taken: true, reason: "blocked" });
     }
@@ -127,12 +169,14 @@ function doPost(e) {
       canonPhone(b.phone), // G phone (canonical 27XXXXXXXXX)
       b.notes || ""      // H notes
     ]);
+    invalidateCache();
     try { sendBookingEmail(b); } catch (err) {}
     try { sendBookingPush(b); } catch (err) {}
     return jsonOut({ ok: true });
   } catch (err) {
     return jsonOut({ ok: false, error: "lock_timeout" });
   } finally {
+    invalidateCache();
     try { lock.releaseLock(); } catch (e) {}
   }
 }
@@ -148,6 +192,8 @@ function adminLogin(pw) {
 function adminList(pw) {
   if (!verifyRole(pw)) return jsonOut({ ok: false, error: "unauthorized" });
 
+  // Always read the sheet directly - the staff panel must never show a cached view.
+  invalidateCache();
   var rows = getAllBookingsFull();
   var today = todayStr();
   var nowTime = nowTimeStr();
@@ -199,6 +245,7 @@ function adminDelete(pw, date, time) {
       removed++;
     }
   }
+  invalidateCache();
   return jsonOut({ ok: true, removed: removed });
 }
 
@@ -350,14 +397,6 @@ function listAvailabilityData() {
   return out;
 }
 
-function getOverride(date) {
-  var list = listAvailabilityData();
-  for (var i = 0; i < list.length; i++) {
-    if (list[i].date === String(date)) return list[i].times;
-  }
-  return null;
-}
-
 function setAvailability(b) {
   if (!verifyRole(b.pw)) return jsonOut({ ok: false, error: "unauthorized" });
   var date = String(b.date || "").trim();
@@ -372,6 +411,7 @@ function setAvailability(b) {
     if (fmtDate(data[i][0]) === date) sh.deleteRow(i + 1);
   }
   sh.appendRow([date, times.join(","), new Date()]);
+  invalidateCache();
   return jsonOut({ ok: true, date: date, times: times });
 }
 
@@ -388,6 +428,7 @@ function clearAvailability(b) {
       removed++;
     }
   }
+  invalidateCache();
   return jsonOut({ ok: true, removed: removed });
 }
 
@@ -493,6 +534,7 @@ function publicCancel(b) {
       removed++;
     }
   }
+  invalidateCache();
   return jsonOut({ ok: true, removed: removed });
 }
 
@@ -506,17 +548,18 @@ function publicMyBookings(b) {
   return jsonOut({ ok: true, bookings: out });
 }
 
-/* ---- availability rules ---- */
-//  Mon-Fri (weekday): only ONE booking per day (time slots are too close).
-//  Saturday: each client takes 3 hours, so nothing may START within
-//            3 hours before OR after an existing booking (no overlaps).
+/* ---- availability rules ----
+   These MUST stay identical to the clients (script.js / src/lib/api.ts), or a
+   slot the app hides can still be booked here - or worse, a slot the app shows
+   as free is refused here.
+     - Mon-Fri with no admin override: only ONE booking per day.
+     - Everything else (Saturday + admin-set days): each client takes 3 hours,
+       so nothing may START within 3 hours before OR after an existing booking. */
 function isSlotTaken(date, time) {
-  var bookings = getAllBookings();
-  // A custom schedule means each chosen slot stands on its own.
-  if (getOverride(date) !== null) {
-    return bookings.some(function (e) { return e.date === date && e.time === time; });
-  }
-  if (isWeekday(date)) {
+  var data = getData();
+  var bookings = data.bookings;
+  var overridden = getOverrideFromList(data.availability, date) !== null;
+  if (!overridden && isWeekday(date)) {
     return bookings.some(function (e) { return e.date === date; });
   }
   var t = toMin(time);
@@ -525,6 +568,14 @@ function isSlotTaken(date, time) {
     var bt = toMin(e.time);
     return t >= bt - 180 && t < bt + 180; // 3h before..3h after fully blocked
   });
+}
+
+function getOverrideFromList(list, date) {
+  if (!list) return null;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].date === String(date)) return list[i].times;
+  }
+  return null;
 }
 
 function isWeekday(date) {
