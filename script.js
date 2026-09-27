@@ -1,6 +1,6 @@
 const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.7";
 
 /* Periodically re-fetch bookings and availability so the calendar stays fresh
    without the user needing to reload the page. Poll interval = 5 minutes. */
@@ -59,11 +59,7 @@ const SERVICES = [
 const TIMES = []; // placeholder (unused; times now depend on weekday)
 
 const ADDONS = [
-  { id: "trim",  name: "Trim",                  dur: "",       price: 35 },
-  { id: "ns30",  name: "Neck & Shoulder",       dur: "30 min", price: 180, group: "Massages" },
-  { id: "hns30", name: "Head, Neck & Shoulder", dur: "30 min", price: 200, group: "Massages" },
-  { id: "ns40",  name: "Neck & Shoulder",       dur: "40 min", price: 200, group: "Massages" },
-  { id: "hns40", name: "Head, Neck & Shoulder", dur: "40 min", price: 220, group: "Massages" }
+  { id: "trim",  name: "Trim",                  dur: "",       price: 35 }
 ];
 
 function weekday(iso) {
