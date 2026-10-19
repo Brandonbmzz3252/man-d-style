@@ -288,11 +288,14 @@ function selectService(id) {
   updateLiveTotal();
 }
 
-/* The checkbox is the source of truth. Reading its `checked` value inside a
-   `click` handler on the label runs BEFORE the browser has toggled it, so the
-   state was always one step behind (and `applyKidsState` then forced the box
-   back), making the toggle appear to do nothing. Listen to `change` instead,
-   which fires after the value has actually changed. */
+/* Toggle on click of the whole label (the checkbox itself is visually hidden,
+   so relying on its `change` event alone was unreliable across browsers). */
+$("kids-toggle").addEventListener("click", () => {
+  state.kids = !state.kids;
+  applyKidsState();
+});
+
+/* Keep the hidden checkbox in sync for accessibility / keyboard users. */
 $("kids-input").addEventListener("change", () => {
   state.kids = $("kids-input").checked;
   applyKidsState();
