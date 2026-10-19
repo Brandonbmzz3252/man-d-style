@@ -943,7 +943,13 @@ async function mdsCheckUpdate() {
     if (deployed > seen) {
       lsSet(MDS_VER_KEY, String(deployed));
       flash("New version available - updating\u2026");
-      setTimeout(() => location.reload(), 1500);
+      // Reload with a cache-busting query so the browser refetches index.html
+      // (and its ?v= script/css refs) instead of reusing a stale cached copy.
+      setTimeout(() => {
+        const u = new URL(location.href);
+        u.searchParams.set("cb", String(Date.now()));
+        location.href = u.toString();
+      }, 1500);
     }
   } catch (e) { /* offline or host unreachable - ignore, retry later */ }
 }
