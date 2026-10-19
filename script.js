@@ -288,16 +288,12 @@ function selectService(id) {
   updateLiveTotal();
 }
 
-/* Toggle on click of the whole label (the checkbox itself is visually hidden,
-   so relying on its `change` event alone was unreliable across browsers). */
-$("kids-toggle").addEventListener("click", () => {
+/* Clicking a <label> lets the browser ALSO toggle its nested checkbox after
+   our handler runs, which undoes the change. preventDefault() stops that
+   double-toggle so a single tap reliably flips the state. */
+$("kids-toggle").addEventListener("click", (e) => {
+  e.preventDefault();
   state.kids = !state.kids;
-  applyKidsState();
-});
-
-/* Keep the hidden checkbox in sync for accessibility / keyboard users. */
-$("kids-input").addEventListener("change", () => {
-  state.kids = $("kids-input").checked;
   applyKidsState();
 });
 
