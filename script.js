@@ -288,7 +288,12 @@ function selectService(id) {
   updateLiveTotal();
 }
 
-$("kids-toggle").addEventListener("click", () => {
+/* The checkbox is the source of truth. Reading its `checked` value inside a
+   `click` handler on the label runs BEFORE the browser has toggled it, so the
+   state was always one step behind (and `applyKidsState` then forced the box
+   back), making the toggle appear to do nothing. Listen to `change` instead,
+   which fires after the value has actually changed. */
+$("kids-input").addEventListener("change", () => {
   state.kids = $("kids-input").checked;
   applyKidsState();
 });
@@ -869,15 +874,12 @@ function closeDrawer() {
    - iOS: whatsapp:// scheme jumps straight into the app.
    - Desktop: wa.me in the same tab (WhatsApp Web / QR). */
 function smartWhatsAppOpen(url) {
-  const ua = navigator.userAgent || "";
-  if (/Android/i.test(ua)) {
-    window.location.href = url.replace("https://wa.me/", "intent://wa.me/") + "#Intent;scheme=https;package=com.whatsapp;end";
-  } else if (/iPhone|iPad|iPod/i.test(ua)) {
-    const m = url.match(/[?&]text=([^&]*)/);
-    window.location.href = `whatsapp://send?phone=${WHATSAPP_NUMBER}&text=${m ? m[1] : ""}`;
-  } else {
-    window.location.href = url;
-  }
+  // Use the standard wa.me link in the same tab. wa.me is an app link on both
+  // Android and iOS, so it opens WhatsApp directly when installed and falls
+  // back to the web page otherwise. The previous native intent/whatsapp://
+  // schemes failed to launch in several browsers, which meant clients' booking
+  // messages never reached WhatsApp.
+  window.location.href = url;
 }
 
 /* ---- app download ---- 
