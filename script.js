@@ -173,7 +173,7 @@ const HAIR_PHOTO = {
   short:  "img/short.jpg",
   medium: "img/medium.jpg",
   long:   "img/long.jpg",
-  extralong: "img/extra-long.jpg"
+  extralong: "img/extra-long.jpg?v=2"
 };
 
 function serviceCardHTML(svc, mode) {
