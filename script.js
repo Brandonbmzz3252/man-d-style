@@ -53,6 +53,7 @@ const SERVICES = [
   { id: "short", name: "Short", price: "R160", kidsPrice: "R120" },
   { id: "medium", name: "Medium", price: "R180", kidsPrice: "R140" },
   { id: "long", name: "Long", price: "R200", kidsPrice: "R160" },
+  { id: "extralong", name: "Extra Long", price: "R230", kidsPrice: "R190" },
   { id: "wbf", name: "W/B/ Flat iron", price: "" }
 ];
 
@@ -171,7 +172,8 @@ function fmtLong(iso) {
 const HAIR_PHOTO = {
   short:  "img/short.jpg",
   medium: "img/medium.jpg",
-  long:   "img/long.jpg"
+  long:   "img/long.jpg",
+  extralong: "img/extra-long.jpg"
 };
 
 function serviceCardHTML(svc, mode) {
