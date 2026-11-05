@@ -553,8 +553,8 @@ function publicMyBookings(b) {
    slot the app hides can still be booked here - or worse, a slot the app shows
    as free is refused here.
      - Mon-Fri with no admin override: only ONE booking per day.
-     - Everything else (Saturday + admin-set days): each client takes 3 hours,
-       so nothing may START within 3 hours before OR after an existing booking. */
+     - Everything else (Saturday + admin-set days): each client takes 2 hours,
+       so nothing may START within 2 hours before OR after an existing booking. */
 function isSlotTaken(date, time) {
   var data = getData();
   var bookings = data.bookings;
@@ -566,7 +566,7 @@ function isSlotTaken(date, time) {
   return bookings.some(function (e) {
     if (e.date !== date) return false;
     var bt = toMin(e.time);
-    return t >= bt - 180 && t < bt + 180; // 3h before..3h after fully blocked
+    return t >= bt - 120 && t < bt + 120; // 2h before..2h after fully blocked
   });
 }
 

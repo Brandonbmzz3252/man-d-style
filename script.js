@@ -1,6 +1,6 @@
 const WHATSAPP_NUMBER = "27747257566";
 const STORAGE_KEY = "mds_bookings";
-const APP_VERSION = "1.9";
+const APP_VERSION = "2.2";
 
 /* Periodically re-fetch bookings and availability so the calendar stays fresh
    without the user needing to reload the page. Poll interval = 5 minutes. */
@@ -521,13 +521,13 @@ function bookedWindow(dateISO, checkTime, gapMin) {
   const all = getBookings().concat(remoteBookings);
   const overridden = overrideTimesFor(dateISO) !== null;
   // Custom schedules keep the same rule as a normal day: a booking makes the
-  // 3 hours before and the 3 hours after unavailable (no overlaps).
+  // 2 hours before and the 2 hours after unavailable (no overlaps).
   if (!overridden && isWeekday(dateISO)) {
     // Mon-Fri: any existing booking fills the whole day
     return all.some((b) => b.date === dateISO);
   }
-  // Saturday & admin-set days: each client takes 3 hours, so nothing may START
-  // within 3 hours before OR after an existing booking.
+  // Saturday & admin-set days: each client takes 2 hours, so nothing may START
+  // within 2 hours before OR after an existing booking.
   const t = toMinutes(checkTime);
   return all.some((b) => {
     if (b.date !== dateISO) return false;
@@ -543,7 +543,7 @@ function isWeekday(iso) {
 
 function renderTimes() {
   const times = effectiveTimesFor(state.date || todayISO());
-  const gapMin = 180;
+  const gapMin = 120;
   // Until we have confirmed booking data we must NOT offer any slot: a slot
   // shown as free that is actually taken is a double booking.
   const unknown = !dataReady;
@@ -638,7 +638,7 @@ $("confirm-btn").addEventListener("click", async (e) => {
   try {
     // Fresh server check — someone else may have taken the slot since page load.
     await syncData();
-    if (bookedWindow(state.date, state.time, 180)) {
+    if (bookedWindow(state.date, state.time, 120)) {
       flash("Sorry, that time was just booked. Please pick another.");
       state.time = "";
       renderTimes();
